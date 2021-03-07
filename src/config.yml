@@ -1,0 +1,18 @@
+---
+# control
+control:
+  num_users: '100'
+  frac: '0.1'
+  data_split_mode: 'iid'
+# data
+data_name: MNIST
+# MNIST
+model_name: conv
+# experiment
+num_workers: 0
+init_seed: 0
+num_experiments: 1
+log_interval: 0.25
+device: cuda
+world_size: 1
+resume_mode: 0
