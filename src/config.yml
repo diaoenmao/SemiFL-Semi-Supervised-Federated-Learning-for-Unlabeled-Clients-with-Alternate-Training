@@ -7,7 +7,7 @@ control:
 # data
 data_name: MNIST
 # MNIST
-model_name: conv
+model_name: resnet18
 # experiment
 num_workers: 0
 init_seed: 0

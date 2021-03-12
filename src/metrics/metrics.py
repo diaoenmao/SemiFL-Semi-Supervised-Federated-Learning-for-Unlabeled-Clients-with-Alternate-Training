@@ -30,14 +30,14 @@ class Metric(object):
     def make_metric_name(self, metric_name):
         for split in metric_name:
             if split == 'test':
-                if cfg['data_name'] in ['MNIST', 'CIFAR10']:
+                if cfg['data_name'] in ['MNIST', 'CIFAR10', 'CIFAR100']:
                     metric_name[split] += ['Accuracy']
                 else:
                     raise ValueError('Not valid data name')
         return metric_name
 
     def make_pivot(self):
-        if cfg['data_name'] in ['MNIST', 'CIFAR10']:
+        if cfg['data_name'] in ['MNIST', 'CIFAR10', 'CIFAR100']:
             pivot = -float('inf')
             pivot_name = 'Accuracy'
             pivot_direction = 'up'

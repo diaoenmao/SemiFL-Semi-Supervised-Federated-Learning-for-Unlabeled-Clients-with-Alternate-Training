@@ -44,44 +44,22 @@ def main():
     world_size = [[world_size]]
     num_experiments = [[experiment_step]]
     resume_mode = [[resume_mode]]
-    if file == 'model':
+    if file == 'classifier':
         filename = '{}_{}'.format(run, file)
-        model_names = [['linear', 'mlp']]
-        data_names = [['Blob', 'Iris', 'Diabetes', 'BostonHousing', 'Wine', 'BreastCancer', 'QSAR']]
         control_name = [[['None']]]
-        toy_controls = make_controls(script_name, data_names, model_names, init_seeds, world_size, num_experiments,
-                                     resume_mode, control_name)
         model_names = [['conv']]
         data_names = [['MNIST']]
         mnist_controls = make_controls(script_name, data_names, model_names, init_seeds, world_size, num_experiments,
                                        resume_mode, control_name)
-        model_names = [['conv']]
-        data_names = [['CIFAR10']]
-        cifar10_controls = make_controls(script_name, data_names, model_names, init_seeds, world_size, num_experiments,
+        model_names = [['resnet18']]
+        data_names = [['CIFAR10', 'CIFAR100']]
+        cifar_controls = make_controls(script_name, data_names, model_names, init_seeds, world_size, num_experiments,
                                          resume_mode, control_name)
-        controls = toy_controls + mnist_controls + cifar10_controls
-    elif file == 'model_assist':
+        controls =  mnist_controls + cifar_controls
+    elif file == 'classifier_fed':
         filename = '{}_{}'.format(run, model)
         model_names = [[model]]
-        if model in ['linear', 'mlp']:
-            local_epoch = ['100']
-            data_names = [
-                ['Blob', 'Iris', 'Diabetes', 'BostonHousing', 'Wine', 'BreastCancer', 'QSAR']]
-            control_name = [[['1'], ['none'], local_epoch, ['10']]]
-            control_1 = make_controls(script_name, data_names, model_names, init_seeds, world_size, num_experiments,
-                                      resume_mode, control_name)
-            data_names = [
-                ['Blob', 'Iris', 'Diabetes', 'BostonHousing', 'Wine', 'BreastCancer', 'QSAR']]
-            control_name = [[['2', '4'], ['none', 'bag', 'stack'], local_epoch, ['10']]]
-            control_2_4 = make_controls(script_name, data_names, model_names, init_seeds, world_size, num_experiments,
-                                        resume_mode, control_name)
-            data_names = [
-                ['Blob', 'Diabetes', 'BostonHousing', 'Wine', 'BreastCancer', 'QSAR']]
-            control_name = [[['8'], ['none', 'bag', 'stack'], local_epoch, ['10']]]
-            control_8 = make_controls(script_name, data_names, model_names, init_seeds, world_size, num_experiments,
-                                      resume_mode, control_name)
-            controls = control_1 + control_2_4 + control_8
-        elif model in ['conv']:
+        if model in ['conv']:
             local_epoch = ['10']
             data_names = [['MNIST', 'CIFAR10']]
             control_name = [[['1'], ['none'], local_epoch, ['10']]]

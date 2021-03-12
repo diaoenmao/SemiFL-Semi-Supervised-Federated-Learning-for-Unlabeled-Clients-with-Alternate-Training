@@ -86,7 +86,7 @@ class ResNet(nn.Module):
         out = out.view(out.size(0), -1)
         out = self.linear(out)
         output['target'] = out
-        output['loss'] = loss_fn(input, output)
+        output['loss'] = loss_fn(output['target'], input['target'])
         return output
 
 

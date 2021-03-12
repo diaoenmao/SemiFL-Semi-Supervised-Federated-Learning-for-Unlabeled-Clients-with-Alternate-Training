@@ -11,10 +11,14 @@ from .utils import download_url, extract_file, make_classes_counts, make_tree, m
 
 class MNIST(Dataset):
     data_name = 'MNIST'
-    file = [('http://yann.lecun.com/exdb/mnist/train-images-idx3-ubyte.gz', 'f68b3c2dcbeaaa9fbdd348bbdeb94873'),
-            ('http://yann.lecun.com/exdb/mnist/t10k-images-idx3-ubyte.gz', '9fb629c4189551a2d022fa330f9573f3'),
-            ('http://yann.lecun.com/exdb/mnist/train-labels-idx1-ubyte.gz', 'd53e105ee54ea40749a09fcbcd1e9432'),
-            ('http://yann.lecun.com/exdb/mnist/t10k-labels-idx1-ubyte.gz', 'ec29112dd5afa0611ce80d1b7f02629c')]
+    file = [('https://ossci-datasets.s3.amazonaws.com/mnist/train-images-idx3-ubyte.gz',
+             'f68b3c2dcbeaaa9fbdd348bbdeb94873'),
+            ('https://ossci-datasets.s3.amazonaws.com/mnist/t10k-images-idx3-ubyte.gz',
+             '9fb629c4189551a2d022fa330f9573f3'),
+            ('https://ossci-datasets.s3.amazonaws.com/mnist/train-labels-idx1-ubyte.gz',
+             'd53e105ee54ea40749a09fcbcd1e9432'),
+            ('https://ossci-datasets.s3.amazonaws.com/mnist/t10k-labels-idx1-ubyte.gz',
+             'ec29112dd5afa0611ce80d1b7f02629c')]
 
     def __init__(self, root, split, transform=None):
         self.root = os.path.expanduser(root)

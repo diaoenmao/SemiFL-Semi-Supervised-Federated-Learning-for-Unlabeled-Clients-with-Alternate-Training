@@ -6,21 +6,39 @@ from torch.utils.data import DataLoader
 from torch.utils.data.dataloader import default_collate
 
 
-def fetch_dataset(data_name, verbose=True):
+def fetch_dataset(data_name):
     import datasets
     dataset = {}
-    if verbose:
-        print('fetching data {}...'.format(data_name))
+    print('fetching data {}...'.format(data_name))
     root = './data/{}'.format(data_name)
-    if data_name in ['MNIST', 'CIFAR10']:
+    if data_name in ['MNIST']:
         dataset['train'] = eval('datasets.{}(root=root, split=\'train\', '
                                 'transform=datasets.Compose([transforms.ToTensor()]))'.format(data_name))
         dataset['test'] = eval('datasets.{}(root=root, split=\'test\', '
                                'transform=datasets.Compose([transforms.ToTensor()]))'.format(data_name))
+        dataset['train'].transform = datasets.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize((0.1307,), (0.3081,))])
+        dataset['test'].transform = datasets.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize((0.1307,), (0.3081,))])
+    elif data_name in ['CIFAR10', 'CIFAR100']:
+        dataset['train'] = eval('datasets.{}(root=root, split=\'train\', '
+                                'transform=datasets.Compose([transforms.ToTensor()]))'.format(data_name))
+        dataset['test'] = eval('datasets.{}(root=root, split=\'test\', '
+                               'transform=datasets.Compose([transforms.ToTensor()]))'.format(data_name))
+        dataset['train'].transform = datasets.Compose([
+            datasets.RandAugment(3, 5),
+            transforms.RandomCrop(32, padding=4),
+            transforms.RandomHorizontalFlip(),
+            transforms.ToTensor(),
+            transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))])
+        dataset['test'].transform = datasets.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))])
     else:
         raise ValueError('Not valid dataset name')
-    if verbose:
-        print('data ready')
+    print('data ready')
     return dataset
 
 

@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from config import cfg
-from .utils import init_param, normalize, loss_fn, feature_split
+from .utils import init_param, normalize, loss_fn
 
 
 class Conv(nn.Module):

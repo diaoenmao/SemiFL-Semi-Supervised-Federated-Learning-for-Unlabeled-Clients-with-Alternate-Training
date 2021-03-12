@@ -89,7 +89,7 @@ def check_integrity(path, md5=None):
 def download_url(url, root, filename, md5):
     from six.moves import urllib
     opener = urllib.request.build_opener()
-    opener.addheaders = [('User-agent', 'Mozilla/5.0')]
+    opener.addheaders = [('User-agent', 'pytorch/vision')]
     urllib.request.install_opener(opener)
     path = os.path.join(root, filename)
     makedir_exist_ok(root)
