@@ -46,16 +46,12 @@ def main():
     resume_mode = [[resume_mode]]
     if file == 'classifier':
         filename = '{}_{}'.format(run, file)
-        control_name = [[['None']]]
-        model_names = [['conv']]
-        data_names = [['MNIST']]
-        mnist_controls = make_controls(script_name, data_names, model_names, init_seeds, world_size, num_experiments,
-                                       resume_mode, control_name)
         model_names = [['resnet18']]
         data_names = [['CIFAR10', 'CIFAR100']]
+        control_name = [[['1'], ['1'], ['none'], ['none', 'ra']]]
         cifar_controls = make_controls(script_name, data_names, model_names, init_seeds, world_size, num_experiments,
-                                         resume_mode, control_name)
-        controls =  mnist_controls + cifar_controls
+                                       resume_mode, control_name)
+        controls = cifar_controls
     elif file == 'classifier_fed':
         filename = '{}_{}'.format(run, model)
         model_names = [[model]]

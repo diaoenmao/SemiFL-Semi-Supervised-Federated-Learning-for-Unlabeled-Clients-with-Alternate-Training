@@ -106,14 +106,16 @@ def process_dataset(dataset):
 
 
 def process_control():
+    cfg['num_users'] = int(cfg['control']['num_users'])
+    cfg['frac'] = float(cfg['control']['frac'])
+    cfg['data_split_mode'] = cfg['control']['data_split_mode']
+    cfg['augment'] = cfg['control']['augment'].split('-')
     data_shape = {'MNIST': [1, 28, 28], 'CIFAR10': [3, 32, 32], 'CIFAR100': [3, 32, 32]}
     cfg['data_shape'] = data_shape[cfg['data_name']]
     cfg['conv'] = {'hidden_size': [64, 128, 256, 512]}
     cfg['resnet18'] = {'hidden_size': [64, 128, 256, 512]}
-    if 'num_users' in cfg['control']:
-        cfg['num_users'] = int(cfg['control']['num_users'])
-        cfg['frac'] = float(cfg['control']['frac'])
-        cfg['data_split_mode'] = cfg['control']['data_split_mode']
+    cfg['wresnet28x10'] = {'depth': 28, 'widen_factor': 10, 'drop_rate': 0.3}
+    if cfg['num_users'] > 1:
         model_name = cfg['model_name']
         if cfg['data_name'] in ['MNIST']:
             cfg[model_name]['shuffle'] = {'train': True, 'test': False}
@@ -164,23 +166,21 @@ def process_control():
             cfg[model_name]['optimizer_name'] = 'SGD'
             cfg[model_name]['lr'] = 1e-2
             cfg[model_name]['momentum'] = 0.9
+            cfg[model_name]['nesterov'] = True
             cfg[model_name]['weight_decay'] = 5e-4
-            cfg[model_name]['scheduler_name'] = 'MultiStepLR'
-            cfg[model_name]['factor'] = 0.1
-            cfg[model_name]['num_epochs'] = 200
-            cfg[model_name]['batch_size'] = {'train': 512, 'test': 512}
-            cfg[model_name]['milestones'] = [100]
+            cfg[model_name]['scheduler_name'] = 'CosineAnnealingLR'
+            cfg[model_name]['num_epochs'] = 100
+            cfg[model_name]['batch_size'] = {'train': 128, 'test': 128}
         elif cfg['data_name'] in ['CIFAR10', 'CIFAR100']:
             cfg[model_name]['shuffle'] = {'train': True, 'test': False}
             cfg[model_name]['optimizer_name'] = 'SGD'
             cfg[model_name]['lr'] = 1e-1
             cfg[model_name]['momentum'] = 0.9
             cfg[model_name]['weight_decay'] = 5e-4
-            cfg[model_name]['scheduler_name'] = 'MultiStepLR'
-            cfg[model_name]['factor'] = 0.1
-            cfg[model_name]['num_epochs'] = 400
-            cfg[model_name]['batch_size'] = {'train': 512, 'test': 512}
-            cfg[model_name]['milestones'] = [150, 250]
+            cfg[model_name]['nesterov'] = True
+            cfg[model_name]['scheduler_name'] = 'CosineAnnealingLR'
+            cfg[model_name]['num_epochs'] = 200
+            cfg[model_name]['batch_size'] = {'train': 128, 'test': 128}
         else:
             raise ValueError('Not valid model name')
     cfg['stats'] = make_stats()
@@ -230,7 +230,7 @@ class Stats(object):
 def make_optimizer(model, tag):
     if cfg[tag]['optimizer_name'] == 'SGD':
         optimizer = optim.SGD(model.parameters(), lr=cfg[tag]['lr'], momentum=cfg[tag]['momentum'],
-                              weight_decay=cfg[tag]['weight_decay'])
+                              weight_decay=cfg[tag]['weight_decay'], nesterov=cfg[tag]['nesterov'])
     elif cfg[tag]['optimizer_name'] == 'Adam':
         optimizer = optim.Adam(model.parameters(), lr=cfg[tag]['lr'], weight_decay=cfg[tag]['weight_decay'])
     elif cfg[tag]['optimizer_name'] == 'LBFGS':
@@ -251,8 +251,7 @@ def make_scheduler(optimizer, tag):
     elif cfg[tag]['scheduler_name'] == 'ExponentialLR':
         scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.99)
     elif cfg[tag]['scheduler_name'] == 'CosineAnnealingLR':
-        scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=cfg[tag]['num_epochs']['global'],
-                                                         eta_min=cfg[tag]['min_lr'])
+        scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=cfg[tag]['num_epochs'], eta_min=0)
     elif cfg[tag]['scheduler_name'] == 'ReduceLROnPlateau':
         scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=cfg[tag]['factor'],
                                                          patience=cfg[tag]['patience'], verbose=False,

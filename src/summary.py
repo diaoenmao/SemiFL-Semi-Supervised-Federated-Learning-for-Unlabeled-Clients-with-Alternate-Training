@@ -94,15 +94,13 @@ def summarize(data_loader, model):
                             summary['module'][key]['params']['weight']['size'] = list(param.size())
                             summary['module'][key]['coordinates'] = []
                             summary['module'][key]['params']['weight']['mask'] = torch.zeros(
-                                summary['module'][key]['params']['weight']['size'], dtype=torch.long,
-                                device=cfg['device'])
+                                summary['module'][key]['params']['weight']['size'], dtype=torch.long)
                     elif name in ['bias']:
                         if name not in summary['module'][key]['params']:
                             summary['module'][key]['params']['bias'] = {}
                             summary['module'][key]['params']['bias']['size'] = list(param.size())
                             summary['module'][key]['params']['bias']['mask'] = torch.zeros(
-                                summary['module'][key]['params']['bias']['size'], dtype=torch.long,
-                                device=cfg['device'])
+                                summary['module'][key]['params']['bias']['size'], dtype=torch.long)
                     else:
                         continue
             if len(summary['module'][key]['params']) == 0:

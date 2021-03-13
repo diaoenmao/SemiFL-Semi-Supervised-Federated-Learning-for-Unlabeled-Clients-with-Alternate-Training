@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from config import cfg
-from .utils import init_param, normalize, loss_fn
+from .utils import init_param, loss_fn
 
 
 class Conv(nn.Module):
@@ -25,7 +25,6 @@ class Conv(nn.Module):
     def forward(self, input):
         output = {}
         x = input['data']
-        x = normalize(x)
         out = self.blocks(x)
         output['target'] = out
         output['loss'] = loss_fn(output['target'], input['target'])

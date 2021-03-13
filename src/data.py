@@ -22,13 +22,14 @@ def fetch_dataset(data_name):
         dataset['test'].transform = datasets.Compose([
             transforms.ToTensor(),
             transforms.Normalize((0.1307,), (0.3081,))])
+        if 'ra' in cfg['augment']:
+            dataset['train'].transform.transforms.insert(0, datasets.RandAugment(3, 5))
     elif data_name in ['CIFAR10', 'CIFAR100']:
         dataset['train'] = eval('datasets.{}(root=root, split=\'train\', '
                                 'transform=datasets.Compose([transforms.ToTensor()]))'.format(data_name))
         dataset['test'] = eval('datasets.{}(root=root, split=\'test\', '
                                'transform=datasets.Compose([transforms.ToTensor()]))'.format(data_name))
         dataset['train'].transform = datasets.Compose([
-            datasets.RandAugment(3, 5),
             transforms.RandomCrop(32, padding=4),
             transforms.RandomHorizontalFlip(),
             transforms.ToTensor(),
@@ -36,6 +37,8 @@ def fetch_dataset(data_name):
         dataset['test'].transform = datasets.Compose([
             transforms.ToTensor(),
             transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))])
+        if 'ra' in cfg['augment']:
+            dataset['train'].transform.transforms.insert(0, datasets.RandAugment(3, 5))
     else:
         raise ValueError('Not valid dataset name')
     print('data ready')

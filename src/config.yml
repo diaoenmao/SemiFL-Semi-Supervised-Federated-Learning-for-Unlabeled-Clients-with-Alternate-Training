@@ -4,6 +4,7 @@ control:
   num_users: '100'
   frac: '0.1'
   data_split_mode: 'iid'
+  augment: 'ra'
 # data
 data_name: MNIST
 # MNIST

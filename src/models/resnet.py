@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from .utils import init_param, normalize, loss_fn
+from .utils import init_param, loss_fn
 from config import cfg
 
 
@@ -52,7 +52,7 @@ class Bottleneck(nn.Module):
 
 
 class ResNet(nn.Module):
-    def __init__(self, data_shape, hidden_size, block, num_blocks, target_size, sneak):
+    def __init__(self, data_shape, hidden_size, block, num_blocks, target_size):
         super(ResNet, self).__init__()
         self.in_planes = hidden_size[0]
         self.conv1 = nn.Conv2d(data_shape[0], hidden_size[0], kernel_size=3, stride=1, padding=1, bias=False)
@@ -62,7 +62,6 @@ class ResNet(nn.Module):
         self.layer4 = self._make_layer(block, hidden_size[3], num_blocks[3], stride=2)
         self.n4 = nn.BatchNorm2d(hidden_size[3] * block.expansion)
         self.linear = nn.Linear(hidden_size[3] * block.expansion, target_size)
-        self.sneak = sneak
 
     def _make_layer(self, block, planes, num_blocks, stride):
         strides = [stride] + [1] * (num_blocks - 1)
@@ -75,7 +74,6 @@ class ResNet(nn.Module):
     def forward(self, input):
         output = {}
         x = input['data']
-        x = normalize(x)
         out = self.conv1(x)
         out = self.layer1(out)
         out = self.layer2(out)
@@ -90,11 +88,11 @@ class ResNet(nn.Module):
         return output
 
 
-def resnet18(sneak=False):
+def resnet18():
     data_shape = cfg['data_shape']
     target_size = cfg['target_size']
     hidden_size = cfg['resnet18']['hidden_size']
-    model = ResNet(data_shape, hidden_size, Block, [1, 1, 1, 2], target_size, sneak)
+    model = ResNet(data_shape, hidden_size, Block, [1, 1, 1, 2], target_size)
     model.apply(init_param)
     return model
 
