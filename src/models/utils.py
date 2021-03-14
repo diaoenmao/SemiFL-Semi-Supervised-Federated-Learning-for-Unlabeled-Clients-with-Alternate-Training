@@ -14,6 +14,44 @@ def init_param(m):
     return m
 
 
-def loss_fn(output, target):
-    loss = F.cross_entropy(output, target)
+def make_batchnorm(m, momentum, track_running_stats):
+    if isinstance(m, nn.BatchNorm2d):
+        m.momentum = momentum
+        m.track_running_stats = track_running_stats
+        m.reset_running_stats()
+    return m
+
+
+def loss_fn(input, output):
+    if 'target' in input:
+        if input['target'].dtype == torch.int64:
+            loss = F.cross_entropy(output['target'], input['target'])
+        else:
+            # loss = mse_loss(output['target'], input['target'])
+            # loss = cross_entropy_loss(output['target'], input['target'])
+            loss = kld_loss(output['target'], input['target'])
+    else:
+        return None
     return loss
+
+
+def mse_loss(output, target, weight=None):
+    mse = F.mse_loss(output, target, reduction='none')
+    mse = weight * mse if weight is not None else mse
+    mse = torch.sum(mse)
+    mse /= output.size(0)
+    return mse
+
+
+def cross_entropy_loss(output, target, weight=None):
+    target = (target.topk(1, 1, True, True)[1]).view(-1)
+    ce = F.cross_entropy(output, target, reduction='mean', weight=weight)
+    return ce
+
+
+def kld_loss(output, target, weight=None, T=1):
+    kld = F.kl_div(F.log_softmax(output / T, dim=-1), F.softmax(target, dim=-1), reduction='none') * (T * T)
+    kld = weight * kld if weight is not None else kld
+    kld = torch.sum(kld)
+    kld /= output.size(0)
+    return kld

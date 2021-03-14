@@ -46,7 +46,7 @@ def main():
     resume_mode = [[resume_mode]]
     if file == 'classifier':
         filename = '{}_{}'.format(run, file)
-        model_names = [['resnet18']]
+        model_names = [['wresnet28x10']]
         data_names = [['CIFAR10', 'CIFAR100']]
         control_name = [[['1'], ['1'], ['none'], ['none', 'ra']]]
         cifar_controls = make_controls(script_name, data_names, model_names, init_seeds, world_size, num_experiments,

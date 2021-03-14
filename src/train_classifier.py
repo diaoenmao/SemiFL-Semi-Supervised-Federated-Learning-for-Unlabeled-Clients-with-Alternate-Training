@@ -1,4 +1,5 @@
 import argparse
+import copy
 import datetime
 import models
 import os
@@ -47,11 +48,19 @@ def runExperiment():
     process_dataset(dataset)
     data_loader = make_data_loader(dataset, cfg['model_name'])
     model = eval('models.{}().to(cfg["device"])'.format(cfg['model_name']))
+    init_model_state_dict = model.state_dict()
     optimizer = make_optimizer(model, cfg['model_name'])
     scheduler = make_scheduler(optimizer, cfg['model_name'])
-    metric = Metric({'train': ['Loss'], 'test': ['Loss']})
+    metric = Metric({'train': ['Loss', 'Accuracy'], 'test': ['Loss', 'Accuracy']})
     if cfg['resume_mode'] == 1:
-        last_epoch, model, optimizer, scheduler, logger = resume(model, cfg['model_tag'], optimizer, scheduler)
+        result = resume(cfg['model_tag'])
+        last_epoch = result['epoch']
+        logger = result['logger']
+        if last_epoch > 1:
+            init_model_state_dict = result['init_model_state_dict']
+            model.load_state_dict(result['model_state_dict'])
+            optimizer.load_state_dict(result['optimizer_state_dict'])
+            scheduler.load_state_dict(result['scheduler_state_dict'])
     else:
         last_epoch = 1
         current_time = datetime.datetime.now().strftime('%b%d_%H-%M-%S')
@@ -62,18 +71,18 @@ def runExperiment():
     for epoch in range(last_epoch, cfg[cfg['model_name']]['num_epochs'] + 1):
         logger.safe(True)
         train(data_loader['train'], model, optimizer, metric, logger, epoch)
-        test(data_loader['test'], model, metric, logger, epoch)
+        test_model = stats(dataset['train'], model)
+        test(data_loader['test'], test_model, metric, logger, epoch)
         if cfg[cfg['model_name']]['scheduler_name'] == 'ReduceLROnPlateau':
             scheduler.step(metrics=logger.mean['train/{}'.format(metric.pivot_name)])
         else:
             scheduler.step()
         logger.safe(False)
-        model_state_dict = model.module.state_dict() if cfg['world_size'] > 1 else model.state_dict()
-        save_result = {
-            'cfg': cfg, 'epoch': epoch + 1, 'model_dict': model_state_dict,
-            'optimizer_dict': optimizer.state_dict(), 'scheduler_dict': scheduler.state_dict(),
-            'logger': logger}
-        save(save_result, './output/model/{}_checkpoint.pt'.format(cfg['model_tag']))
+        model_state_dict = test_model.module.state_dict() if cfg['world_size'] > 1 else test_model.state_dict()
+        result = {'cfg': cfg, 'epoch': epoch + 1, 'init_model_state_dict': init_model_state_dict,
+                  'model_state_dict': model_state_dict, 'optimizer_state_dict': optimizer.state_dict(),
+                  'scheduler_state_dict': scheduler.state_dict(), 'logger': logger}
+        save(result, './output/model/{}_checkpoint.pt'.format(cfg['model_tag']))
         if metric.compare(logger.mean['test/{}'.format(metric.pivot_name)]):
             metric.update(logger.mean['test/{}'.format(metric.pivot_name)])
             shutil.copy('./output/model/{}_checkpoint.pt'.format(cfg['model_tag']),
@@ -94,7 +103,7 @@ def train(data_loader, model, optimizer, metric, logger, epoch):
         output = model(input)
         output['loss'] = output['loss'].mean() if cfg['world_size'] > 1 else output['loss']
         output['loss'].backward()
-        # torch.nn.utils.clip_grad_norm_(model.parameters(), 1)
+        torch.nn.utils.clip_grad_norm_(model.parameters(), 1)
         optimizer.step()
         evaluation = metric.evaluate(metric.metric_name['train'], input, output)
         logger.append(evaluation, 'train', n=input_size)
@@ -111,6 +120,19 @@ def train(data_loader, model, optimizer, metric, logger, epoch):
             logger.append(info, 'train', mean=False)
             print(logger.write('train', metric.metric_name['train']))
     return
+
+
+def stats(dataset, model):
+    with torch.no_grad():
+        test_model = copy.deepcopy(model)
+        model.apply(lambda m: models.make_batchnorm(m, momentum=False, track_running_stats=True))
+        data_loader = make_data_loader({'train': dataset}, cfg['model_name'], shuffle=False)['train']
+        test_model.train(True)
+        for i, input in enumerate(data_loader):
+            input = collate(input)
+            input = to_device(input, cfg['device'])
+            test_model(input)
+    return test_model
 
 
 def test(data_loader, model, metric, logger, epoch):

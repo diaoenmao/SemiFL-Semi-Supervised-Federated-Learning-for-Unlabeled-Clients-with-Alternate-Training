@@ -6,7 +6,7 @@ control:
   data_split_mode: 'iid'
   augment: 'ra'
 # data
-data_name: MNIST
+data_name: CIFAR10
 # MNIST
 model_name: resnet18
 # experiment

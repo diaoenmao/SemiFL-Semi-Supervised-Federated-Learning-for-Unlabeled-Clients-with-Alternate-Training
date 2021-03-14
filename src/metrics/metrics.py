@@ -13,34 +13,28 @@ def Accuracy(output, target, topk=1):
     return acc
 
 
-def RMSE(output, target):
-    with torch.no_grad():
-        mse = F.mse_loss(output, target).sqrt().item()
-    return mse
-
-
 class Metric(object):
     def __init__(self, metric_name):
         self.metric_name = self.make_metric_name(metric_name)
         self.pivot, self.pivot_name, self.pivot_direction = self.make_pivot()
         self.metric = {'Loss': (lambda input, output: output['loss'].item()),
+                       'Local-Loss': (lambda input, output: output['loss'].item()),
+                       'Global-Loss': (lambda input, output: output['loss'].item()),
                        'Accuracy': (lambda input, output: recur(Accuracy, output['target'], input['target'])),
-                       'RMSE': (lambda input, output: recur(RMSE, output['target'], input['target']))}
+                       'Local-Accuracy': (lambda input, output: recur(Accuracy, output['target'], input['target'])),
+                       'Global-Accuracy': (lambda input, output: recur(Accuracy, output['target'], input['target']))}
 
     def make_metric_name(self, metric_name):
-        for split in metric_name:
-            if split == 'test':
-                if cfg['data_name'] in ['MNIST', 'CIFAR10', 'CIFAR100']:
-                    metric_name[split] += ['Accuracy']
-                else:
-                    raise ValueError('Not valid data name')
         return metric_name
 
     def make_pivot(self):
-        if cfg['data_name'] in ['MNIST', 'CIFAR10', 'CIFAR100']:
+        if cfg['data_name'] in ['CIFAR10', 'CIFAR100']:
             pivot = -float('inf')
-            pivot_name = 'Accuracy'
             pivot_direction = 'up'
+            if cfg['num_users'] > 1:
+                pivot_name = 'Global-Accuracy'
+            else:
+                pivot_name = 'Accuracy'
         else:
             raise ValueError('Not valid data name')
         return pivot, pivot_name, pivot_direction

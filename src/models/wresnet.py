@@ -79,7 +79,7 @@ class WideResNet(nn.Module):
         out = self.fc1(out)
         output['target'] = out
         output['loss'] = loss_fn(output['target'], input['target'])
-        return
+        return output
 
 
 def wresnet28x10():

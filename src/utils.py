@@ -101,7 +101,6 @@ def recur(fn, input, *args):
 
 def process_dataset(dataset):
     cfg['target_size'] = dataset['train'].target_size
-    cfg['data_size'] = {split: len(dataset[split]) for split in dataset}
     return
 
 
@@ -114,76 +113,41 @@ def process_control():
     cfg['data_shape'] = data_shape[cfg['data_name']]
     cfg['conv'] = {'hidden_size': [64, 128, 256, 512]}
     cfg['resnet18'] = {'hidden_size': [64, 128, 256, 512]}
-    cfg['wresnet28x10'] = {'depth': 28, 'widen_factor': 10, 'drop_rate': 0.3}
+    cfg['wresnet28x10'] = {'depth': 28, 'widen_factor': 10, 'drop_rate': 0.0}
     if cfg['num_users'] > 1:
+        student_data_name = {'CIFAR10': 'CIFAR100'}
+        cfg['student_data_name'] = student_data_name[cfg['data_name']]
         model_name = cfg['model_name']
-        if cfg['data_name'] in ['MNIST']:
-            cfg[model_name]['shuffle'] = {'train': True, 'test': False}
-            cfg[model_name]['optimizer_name'] = 'SGD'
-            cfg[model_name]['lr'] = 1e-2
-            cfg[model_name]['momentum'] = 0.9
-            cfg[model_name]['weight_decay'] = 5e-4
-            cfg[model_name]['scheduler_name'] = 'MultiStepLR'
-            cfg[model_name]['factor'] = 0.1
-            if cfg['data_split_mode'] == 'iid':
-                cfg[model_name]['num_epochs'] = {'global': 200, 'local': 5}
-                cfg[model_name]['batch_size'] = {'train': 10, 'test': 50}
-                cfg[model_name]['milestones'] = [100]
-            elif 'non-iid' in cfg['data_split_mode']:
-                cfg[model_name]['num_epochs'] = {'global': 400, 'local': 5}
-                cfg[model_name]['batch_size'] = {'train': 10, 'test': 50}
-                cfg[model_name]['milestones'] = [200]
-            else:
-                raise ValueError('Not valid data_split_mode')
-        elif cfg['data_name'] in ['CIFAR10', 'CIFAR100']:
-            cfg[model_name]['shuffle'] = {'train': True, 'test': False}
-            cfg[model_name]['optimizer_name'] = 'SGD'
-            cfg[model_name]['lr'] = 1e-1
-            cfg[model_name]['momentum'] = 0.9
-            cfg[model_name]['weight_decay'] = 5e-4
-            cfg[model_name]['scheduler_name'] = 'MultiStepLR'
-            cfg[model_name]['factor'] = 0.1
-            if cfg['data_split_mode'] == 'iid':
-                cfg[model_name]['num_epochs'] = {'global': 400, 'local': 5}
-                cfg[model_name]['batch_size'] = {'train': 10, 'test': 50}
-                cfg[model_name]['milestones'] = [150, 250]
-            elif 'non-iid' in cfg['data_split_mode']:
-                cfg[model_name]['num_epochs'] = {'global': 800, 'local': 5}
-                cfg[model_name]['batch_size'] = {'train': 10, 'test': 50}
-                cfg[model_name]['milestones'] = [300, 500]
-            else:
-                raise ValueError('Not valid data_split_mode')
+        cfg[model_name]['shuffle'] = {'train': True, 'test': False}
+        cfg['local']['optimizer_name'] = 'SGD'
+        cfg['local']['lr'] = 1e-1
+        cfg['local']['momentum'] = 0.9
+        cfg['local']['weight_decay'] = 5e-4
+        cfg['local']['nesterov'] = True
+        cfg['local']['scheduler_name'] = 'CosineAnnealingLR'
+        cfg['global']['optimizer_name'] = 'SGD'
+        cfg['global']['lr'] = 1
+        cfg['global']['weight_decay'] = 0
+        cfg['global']['scheduler_name'] = 'None'
+        if cfg['data_split_mode'] == 'iid':
+            cfg[model_name]['num_epochs'] = {'global': 400, 'local': 5}
+            cfg[model_name]['batch_size'] = {'train': 10, 'test': 250}
+        elif 'non-iid' in cfg['data_split_mode']:
+            cfg[model_name]['num_epochs'] = {'global': 800, 'local': 5}
+            cfg[model_name]['batch_size'] = {'train': 10, 'test': 250}
         else:
-            raise ValueError('Not valid dataset')
+            raise ValueError('Not valid data_split_mode')
     else:
         model_name = cfg['model_name']
         cfg[model_name]['shuffle'] = {'train': True, 'test': False}
         cfg[model_name]['optimizer_name'] = 'SGD'
+        cfg[model_name]['lr'] = 1e-1
         cfg[model_name]['momentum'] = 0.9
         cfg[model_name]['weight_decay'] = 5e-4
-        if cfg['data_name'] in ['MNIST']:
-            cfg[model_name]['shuffle'] = {'train': True, 'test': False}
-            cfg[model_name]['optimizer_name'] = 'SGD'
-            cfg[model_name]['lr'] = 1e-2
-            cfg[model_name]['momentum'] = 0.9
-            cfg[model_name]['nesterov'] = True
-            cfg[model_name]['weight_decay'] = 5e-4
-            cfg[model_name]['scheduler_name'] = 'CosineAnnealingLR'
-            cfg[model_name]['num_epochs'] = 100
-            cfg[model_name]['batch_size'] = {'train': 128, 'test': 128}
-        elif cfg['data_name'] in ['CIFAR10', 'CIFAR100']:
-            cfg[model_name]['shuffle'] = {'train': True, 'test': False}
-            cfg[model_name]['optimizer_name'] = 'SGD'
-            cfg[model_name]['lr'] = 1e-1
-            cfg[model_name]['momentum'] = 0.9
-            cfg[model_name]['weight_decay'] = 5e-4
-            cfg[model_name]['nesterov'] = True
-            cfg[model_name]['scheduler_name'] = 'CosineAnnealingLR'
-            cfg[model_name]['num_epochs'] = 200
-            cfg[model_name]['batch_size'] = {'train': 128, 'test': 128}
-        else:
-            raise ValueError('Not valid model name')
-    cfg['stats'] = make_stats()
+        cfg[model_name]['nesterov'] = True
+        cfg[model_name]['scheduler_name'] = 'CosineAnnealingLR'
+        cfg[model_name]['num_epochs'] = 200
+        cfg[model_name]['batch_size'] = {'train': 250, 'test': 250}
     return
 
 
@@ -264,18 +228,9 @@ def make_scheduler(optimizer, tag):
     return scheduler
 
 
-def resume(model, model_tag, optimizer=None, scheduler=None, load_tag='checkpoint', verbose=True):
+def resume(model_tag, load_tag='checkpoint', verbose=True):
     if os.path.exists('./output/model/{}_{}.pt'.format(model_tag, load_tag)):
-        checkpoint = load('./output/model/{}_{}.pt'.format(model_tag, load_tag))
-        last_epoch = checkpoint['epoch']
-        model.load_state_dict(checkpoint['model_dict'])
-        if optimizer is not None:
-            optimizer.load_state_dict(checkpoint['optimizer_dict'])
-        if scheduler is not None:
-            scheduler.load_state_dict(checkpoint['scheduler_dict'])
-        logger = checkpoint['logger']
-        if verbose:
-            print('Resume from {}'.format(last_epoch))
+        result = load('./output/model/{}_{}.pt'.format(model_tag, load_tag))
     else:
         print('Not exists model tag: {}, start from scratch'.format(model_tag))
         from datetime import datetime
@@ -283,7 +238,10 @@ def resume(model, model_tag, optimizer=None, scheduler=None, load_tag='checkpoin
         last_epoch = 1
         logger_path = 'output/runs/train_{}_{}'.format(cfg['model_tag'], datetime.now().strftime('%b%d_%H-%M-%S'))
         logger = Logger(logger_path)
-    return last_epoch, model, optimizer, scheduler, logger
+        result = {'epoch': last_epoch, 'logger': logger}
+    if verbose:
+        print('Resume from {}'.format(result['epoch']))
+    return result
 
 
 def collate(input):

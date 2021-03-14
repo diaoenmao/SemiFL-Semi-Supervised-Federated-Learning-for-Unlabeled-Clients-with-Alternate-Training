@@ -39,6 +39,7 @@ def fetch_dataset(data_name):
             transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))])
         if 'ra' in cfg['augment']:
             dataset['train'].transform.transforms.insert(0, datasets.RandAugment(3, 5))
+            dataset['train'].transform.transforms.append(datasets.CutoutDefault(16))
     else:
         raise ValueError('Not valid dataset name')
     print('data ready')
@@ -64,6 +65,7 @@ def make_data_loader(dataset, tag, shuffle=None):
                                     pin_memory=True, num_workers=cfg['num_workers'], collate_fn=input_collate,
                                     worker_init_fn=np.random.seed(cfg['seed']))
     return data_loader
+
 
 
 def split_dataset(dataset, num_users, data_split_mode):
