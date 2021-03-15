@@ -119,6 +119,8 @@ def process_control():
         cfg['student_data_name'] = student_data_name[cfg['data_name']]
         model_name = cfg['model_name']
         cfg[model_name]['shuffle'] = {'train': True, 'test': False}
+        cfg['local'] = {}
+        cfg['global'] = {}
         cfg['local']['optimizer_name'] = 'SGD'
         cfg['local']['lr'] = 1e-1
         cfg['local']['momentum'] = 0.9

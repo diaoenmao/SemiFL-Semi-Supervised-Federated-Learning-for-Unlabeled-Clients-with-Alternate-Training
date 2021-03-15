@@ -27,7 +27,7 @@ class Conv(nn.Module):
         x = input['data']
         out = self.blocks(x)
         output['target'] = out
-        output['loss'] = loss_fn(output['target'], input['target'])
+        output['loss'] = loss_fn(output, input)
         return output
 
 

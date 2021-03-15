@@ -78,7 +78,7 @@ class WideResNet(nn.Module):
         out = out.view(out.size(0), -1)
         out = self.fc1(out)
         output['target'] = out
-        output['loss'] = loss_fn(output['target'], input['target'])
+        output['loss'] = loss_fn(output, input)
         return output
 
 

@@ -22,8 +22,6 @@ def fetch_dataset(data_name):
         dataset['test'].transform = datasets.Compose([
             transforms.ToTensor(),
             transforms.Normalize((0.1307,), (0.3081,))])
-        if 'ra' in cfg['augment']:
-            dataset['train'].transform.transforms.insert(0, datasets.RandAugment(3, 5))
     elif data_name in ['CIFAR10', 'CIFAR100']:
         dataset['train'] = eval('datasets.{}(root=root, split=\'train\', '
                                 'transform=datasets.Compose([transforms.ToTensor()]))'.format(data_name))

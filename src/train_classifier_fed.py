@@ -155,7 +155,7 @@ def make_student_dataset(student_dataset, teacher_model):
 def stats(dataset, model):
     with torch.no_grad():
         test_model = copy.deepcopy(model)
-        model.apply(lambda m: models.make_batchnorm(m, momentum=False, track_running_stats=True))
+        model.apply(lambda m: models.make_batchnorm(m, momentum=None, track_running_stats=True))
         data_loader = make_data_loader({'train': dataset}, cfg['model_name'], shuffle={'train': False})['train']
         test_model.train(True)
         for i, input in enumerate(data_loader):
