@@ -83,9 +83,9 @@ def runExperiment():
     federation = Federation(teacher_model, student_model, global_optimizer, target_split)
     for epoch in range(last_epoch, cfg['num_epochs']['global'] + 1):
         logger.safe(True)
-        train(dataset['train'], data_split['train'], target_split, federation, local_optimizer, metric, logger, epoch)
+        train(dataset['train'], federation, local_optimizer, metric, logger, epoch)
         test_student_model = stats(dataset['train'], federation.student_model)
-        test(dataset['test'], data_split['test'], target_split, test_student_model, metric, logger, epoch)
+        test(dataset['test'], federation, test_student_model, metric, logger, epoch)
         if cfg['local']['scheduler_name'] == 'ReduceLROnPlateau':
             local_scheduler.step(metrics=logger.mean['train/{}'.format(cfg['pivot_metric'])])
         else:
@@ -111,8 +111,8 @@ def runExperiment():
     return
 
 
-def train(dataset, data_split, target_split, federation, local_optimizer, metric, logger, epoch):
-    local, local_parameters, user_idx = make_local(dataset, data_split, target_split, federation)
+def train(dataset, federation, local_optimizer, metric, logger, epoch):
+    local, local_parameters, user_idx = make_local(dataset, federation)
     num_active_users = len(local)
     cfg['local']['lr'] = local_optimizer.param_groups[0]['lr']
     start_time = time.time()
@@ -127,7 +127,6 @@ def train(dataset, data_split, target_split, federation, local_optimizer, metric
                              'Train Epoch: {}({:.0f}%)'.format(epoch, 100. * m / num_active_users),
                              'ID: {}({}/{})'.format(user_idx[m], m + 1, num_active_users),
                              'Learning rate: {}'.format(cfg['local']['lr']),
-                             'Rate: {}'.format(federation.model_rate[user_idx[m]]),
                              'Epoch Finished Time: {}'.format(epoch_finished_time),
                              'Experiment Finished Time: {}'.format(exp_finished_time)]}
             logger.append(info, 'train', mean=False)
@@ -165,15 +164,15 @@ def stats(dataset, model):
     return test_model
 
 
-def test(dataset, data_split, target_split, model, metric, logger, epoch):
+def test(dataset, federation, model, metric, logger, epoch):
     with torch.no_grad():
         model.train(False)
         for m in range(cfg['num_users']):
-            data_loader = make_data_loader({'test': SplitDataset(dataset, data_split[m])})['test']
+            data_loader = make_data_loader({'test': SplitDataset(dataset, federation.data_split['test'][m])})['test']
             for i, input in enumerate(data_loader):
                 input = collate(input)
                 input_size = input['data'].size(0)
-                input['target_split'] = torch.tensor(target_split[m])
+                input['target_split'] = torch.tensor(federation.target_split[m])
                 input = to_device(input, cfg['device'])
                 output = model(input)
                 output['loss'] = output['loss'].mean() if cfg['world_size'] > 1 else output['loss']
@@ -194,14 +193,15 @@ def test(dataset, data_split, target_split, model, metric, logger, epoch):
     return
 
 
-def make_local(dataset, data_split, target_split, federation):
+def make_local(dataset, federation):
     num_active_users = int(np.ceil(cfg['frac'] * cfg['num_users']))
     user_idx = torch.arange(cfg['num_users'])[torch.randperm(cfg['num_users'])[:num_active_users]].tolist()
     local_parameters = federation.distribute(user_idx)
     local = [None for _ in range(num_active_users)]
     for m in range(num_active_users):
-        data_loader_m = make_data_loader({'train': SplitDataset(dataset, data_split[user_idx[m]])})['train']
-        local[m] = Local(data_loader_m, target_split[user_idx[m]])
+        data_loader_m = make_data_loader({'train': SplitDataset(dataset,
+                                                                federation.data_split['train'][user_idx[m]])})['train']
+        local[m] = Local(data_loader_m, federation.target_split[user_idx[m]])
     return local, local_parameters, user_idx
 
 
