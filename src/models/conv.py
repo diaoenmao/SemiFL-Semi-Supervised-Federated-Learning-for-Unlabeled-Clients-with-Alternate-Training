@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from config import cfg
-from .utils import init_param, loss_fn
+from .utils import init_param, make_batchnorm, loss_fn
 
 
 class Conv(nn.Module):
@@ -37,4 +37,5 @@ def conv():
     target_size = cfg['target_size']
     model = Conv(data_shape, hidden_size, target_size)
     model.apply(init_param)
+    model.apply(lambda m: make_batchnorm(m, momentum=None, track_running_stats=False))
     return model

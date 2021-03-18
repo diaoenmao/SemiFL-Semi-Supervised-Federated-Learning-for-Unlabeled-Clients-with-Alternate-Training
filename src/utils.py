@@ -106,36 +106,43 @@ def process_dataset(dataset):
 
 def process_control():
     cfg['num_users'] = int(cfg['control']['num_users'])
-    cfg['frac'] = float(cfg['control']['frac'])
+    cfg['active_rate'] = float(cfg['control']['active_rate'])
     cfg['data_split_mode'] = cfg['control']['data_split_mode']
-    cfg['augment'] = cfg['control']['augment'].split('-')
+    cfg['augment'] = cfg['control']['augment']
     data_shape = {'MNIST': [1, 28, 28], 'CIFAR10': [3, 32, 32], 'CIFAR100': [3, 32, 32]}
     cfg['data_shape'] = data_shape[cfg['data_name']]
     cfg['conv'] = {'hidden_size': [64, 128, 256, 512]}
     cfg['resnet18'] = {'hidden_size': [64, 128, 256, 512]}
     cfg['wresnet28x10'] = {'depth': 28, 'widen_factor': 10, 'drop_rate': 0.0}
-    if cfg['num_users'] > 1:
-        student_data_name = {'CIFAR10': 'CIFAR100'}
+    if cfg['data_split_mode'] in ['iid']:
+        student_data_name = {'CIFAR10': 'CIFAR100', 'CIFAR100': 'CIFAR10'}
         cfg['student_data_name'] = student_data_name[cfg['data_name']]
         model_name = cfg['model_name']
         cfg[model_name]['shuffle'] = {'train': True, 'test': False}
         cfg['local'] = {}
-        cfg['global'] = {}
+        cfg['local']['shuffle'] = {'train': True, 'test': False}
         cfg['local']['optimizer_name'] = 'SGD'
         cfg['local']['lr'] = 1e-1
         cfg['local']['momentum'] = 0.9
         cfg['local']['weight_decay'] = 5e-4
         cfg['local']['nesterov'] = True
         cfg['local']['scheduler_name'] = 'CosineAnnealingLR'
+        cfg['global'] = {}
+        cfg['global']['shuffle'] = {'train': True, 'test': False}
         cfg['global']['optimizer_name'] = 'SGD'
         cfg['global']['lr'] = 1
+        cfg['global']['momentum'] = 0.9
         cfg['global']['weight_decay'] = 0
+        cfg['global']['nesterov'] = True
         cfg['global']['scheduler_name'] = 'None'
         if cfg['data_split_mode'] == 'iid':
-            cfg[model_name]['num_epochs'] = {'global': 400, 'local': 5}
-            cfg[model_name]['batch_size'] = {'train': 10, 'test': 250}
+            cfg['local']['num_epochs'] = 5
+            cfg['global']['num_epochs'] = 400
+            cfg['local']['batch_size'] = {'train': 10, 'test': 250}
+            cfg['global']['batch_size'] = {'train': 250, 'test': 250}
         elif 'non-iid' in cfg['data_split_mode']:
-            cfg[model_name]['num_epochs'] = {'global': 800, 'local': 5}
+            cfg['local']['num_epochs'] = 5
+            cfg['global']['num_epochs'] = 800
             cfg[model_name]['batch_size'] = {'train': 10, 'test': 250}
         else:
             raise ValueError('Not valid data_split_mode')

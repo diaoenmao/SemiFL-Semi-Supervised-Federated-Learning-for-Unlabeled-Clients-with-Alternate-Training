@@ -23,7 +23,7 @@ def make_batchnorm(m, momentum, track_running_stats):
 
 
 def loss_fn(output, input):
-    if 'target' in input:
+    if 'target' in input and input['target'] is not None:
         if input['target'].dtype == torch.int64:
             loss = F.cross_entropy(output['target'], input['target'])
         else:

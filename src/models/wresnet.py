@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from .utils import init_param, loss_fn
+from .utils import init_param, make_batchnorm, loss_fn
 from config import cfg
 
 
@@ -90,4 +90,5 @@ def wresnet28x10():
     drop_rate = cfg['wresnet28x10']['drop_rate']
     model = WideResNet(data_shape, target_size, depth, widen_factor, drop_rate)
     model.apply(init_param)
+    model.apply(lambda m: make_batchnorm(m, momentum=None, track_running_stats=False))
     return model

@@ -1,9 +1,12 @@
+import copy
 import torch
 import numpy as np
+import models
 from config import cfg
 from torchvision import transforms
-from torch.utils.data import DataLoader
+from torch.utils.data import Dataset, DataLoader
 from torch.utils.data.dataloader import default_collate
+from utils import collate, to_device
 
 
 def fetch_dataset(data_name):
@@ -65,7 +68,6 @@ def make_data_loader(dataset, tag, shuffle=None):
     return data_loader
 
 
-
 def split_dataset(dataset, num_users, data_split_mode):
     data_split = {}
     if data_split_mode == 'iid':
@@ -125,3 +127,42 @@ def non_iid(dataset, num_users, target_split=None):
                 torch.randperm(len(target_idx_split[target_i]))[0]].item()
             data_split[i].extend(target_idx_split[target_i].pop(idx))
     return data_split, target_split
+
+
+class SplitDataset(Dataset):
+    def __init__(self, dataset, idx):
+        super().__init__()
+        self.dataset = dataset
+        self.idx = idx
+
+    def __len__(self):
+        return len(self.idx)
+
+    def __getitem__(self, index):
+        input = self.dataset[self.idx[index]]
+        return input
+
+
+def make_stats_batchnorm(dataset, model, tag):
+    import datasets
+    with torch.no_grad():
+        test_model = copy.deepcopy(model)
+        test_model.apply(lambda m: models.make_batchnorm(m, momentum=None, track_running_stats=True))
+        _transform = dataset.transform
+        if cfg['data_name'] in ['MNIST']:
+            dataset.transform = datasets.Compose([transforms.ToTensor(),
+                                                  transforms.Normalize((0.1307,), (0.3081,))])
+        elif cfg['data_name'] in ['CIFAR10', 'CIFAR100']:
+            dataset.transform = datasets.Compose([transforms.ToTensor(),
+                                                  transforms.Normalize((0.4914, 0.4822, 0.4465),
+                                                                       (0.2023, 0.1994, 0.2010))])
+        else:
+            raise ValueError('Not valid dataset name')
+        data_loader = make_data_loader({'train': dataset}, tag, shuffle={'train': False})['train']
+        test_model.train(True)
+        for i, input in enumerate(data_loader):
+            input = collate(input)
+            input = to_device(input, cfg['device'])
+            test_model(input)
+        dataset.transform = _transform
+    return test_model

@@ -2,13 +2,13 @@
 # control
 control:
   num_users: '100'
-  frac: '0.1'
+  frac: '0.01'
   data_split_mode: 'iid'
   augment: 'ra'
 # data
 data_name: CIFAR10
 # MNIST
-model_name: resnet18
+model_name: wresnet28x10
 # experiment
 num_workers: 0
 init_seed: 0

@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from .utils import init_param, loss_fn
+from .utils import init_param, make_batchnorm, loss_fn
 from config import cfg
 
 
@@ -94,40 +94,5 @@ def resnet18():
     hidden_size = cfg['resnet18']['hidden_size']
     model = ResNet(data_shape, hidden_size, Block, [1, 1, 1, 2], target_size)
     model.apply(init_param)
-    return model
-
-
-def resnet34():
-    data_shape = cfg['data_shape']
-    target_size = cfg['target_size']
-    hidden_size = cfg['resnet34']['hidden_size']
-    model = ResNet(data_shape, hidden_size, Block, [3, 4, 6, 3], target_size)
-    model.apply(init_param)
-    return model
-
-
-def resnet50():
-    data_shape = cfg['data_shape']
-    target_size = cfg['target_size']
-    hidden_size = cfg['resnet50']['hidden_size']
-    model = ResNet(data_shape, hidden_size, Bottleneck, [3, 4, 6, 3], target_size)
-    model.apply(init_param)
-    return model
-
-
-def resnet101():
-    data_shape = cfg['data_shape']
-    target_size = cfg['target_size']
-    hidden_size = cfg['resnet101']['hidden_size']
-    model = ResNet(data_shape, hidden_size, Bottleneck, [3, 4, 23, 3], target_size)
-    model.apply(init_param)
-    return model
-
-
-def resnet152():
-    data_shape = cfg['data_shape']
-    target_size = cfg['target_size']
-    hidden_size = cfg['resnet152']['hidden_size']
-    model = ResNet(data_shape, hidden_size, Bottleneck, [3, 8, 36, 3], target_size)
-    model.apply(init_param)
+    model.apply(lambda m: make_batchnorm(m, momentum=None, track_running_stats=False))
     return model

@@ -8,7 +8,7 @@ import time
 import torch
 import torch.backends.cudnn as cudnn
 from config import cfg
-from data import fetch_dataset, make_data_loader
+from data import fetch_dataset, make_data_loader, make_stats_batchnorm
 from metrics import Metric
 from utils import save, to_device, process_control, process_dataset, make_optimizer, make_scheduler, resume, collate
 from logger import Logger
@@ -48,7 +48,7 @@ def runExperiment():
     process_dataset(dataset)
     data_loader = make_data_loader(dataset, cfg['model_name'])
     model = eval('models.{}().to(cfg["device"])'.format(cfg['model_name']))
-    init_model_state_dict = model.state_dict()
+    init_model_state_dict = copy.deepcopy(model.state_dict())
     optimizer = make_optimizer(model, cfg['model_name'])
     scheduler = make_scheduler(optimizer, cfg['model_name'])
     metric = Metric({'train': ['Loss', 'Accuracy'], 'test': ['Loss', 'Accuracy']})
@@ -71,7 +71,7 @@ def runExperiment():
     for epoch in range(last_epoch, cfg[cfg['model_name']]['num_epochs'] + 1):
         logger.safe(True)
         train(data_loader['train'], model, optimizer, metric, logger, epoch)
-        test_model = stats(dataset['train'], model)
+        test_model = make_stats_batchnorm(dataset['train'], model, cfg['model_name'])
         test(data_loader['test'], test_model, metric, logger, epoch)
         if cfg[cfg['model_name']]['scheduler_name'] == 'ReduceLROnPlateau':
             scheduler.step(metrics=logger.mean['train/{}'.format(metric.pivot_name)])
@@ -120,19 +120,6 @@ def train(data_loader, model, optimizer, metric, logger, epoch):
             logger.append(info, 'train', mean=False)
             print(logger.write('train', metric.metric_name['train']))
     return
-
-
-def stats(dataset, model):
-    with torch.no_grad():
-        test_model = copy.deepcopy(model)
-        test_model.apply(lambda m: models.make_batchnorm(m, momentum=None, track_running_stats=True))
-        data_loader = make_data_loader({'train': dataset}, cfg['model_name'], shuffle={'train': False})['train']
-        test_model.train(True)
-        for i, input in enumerate(data_loader):
-            input = collate(input)
-            input = to_device(input, cfg['device'])
-            test_model(input)
-    return test_model
 
 
 def test(data_loader, model, metric, logger, epoch):
