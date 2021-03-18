@@ -8,8 +8,9 @@ import shutil
 import time
 import torch
 import torch.backends.cudnn as cudnn
+from torch.utils.data import Subset
 from config import cfg
-from data import fetch_dataset, make_data_loader, split_dataset, SplitDataset, make_stats_batchnorm
+from data import fetch_dataset, make_data_loader, split_dataset, separate_dataset, make_stats_batchnorm_fed
 from fed import Federation
 from metrics import Metric
 from utils import save, to_device, process_control, process_dataset, make_optimizer, make_scheduler, resume, collate
@@ -52,26 +53,23 @@ def runExperiment():
     teacher_dataset = fetch_dataset(cfg['data_name'])
     student_dataset = fetch_dataset(cfg['student_data_name'])
     process_dataset(teacher_dataset)
-    teacher_model = eval('models.{}().to(cfg["device"])'.format(cfg['model_name']))
-    teacher_result = resume(cfg['teacher_model_tag'], load_tag='best')
-    teacher_model.load_state_dict(teacher_result['model_state_dict'])
-    student_model = eval('models.{}().to(cfg["device"])'.format(cfg['model_name']))
-    # student_model.load_state_dict(teacher_result['model_state_dict'])
-    local_optimizer = make_optimizer(student_model, 'local')
-    global_optimizer = make_optimizer(student_model, 'global')
+    model = eval('models.{}().to(cfg["device"])'.format(cfg['model_name']))
+    local_optimizer = make_optimizer(model, 'local')
+    global_optimizer = make_optimizer(model, 'global')
     local_scheduler = make_scheduler(local_optimizer, 'local')
     global_scheduler = make_scheduler(global_optimizer, 'global')
     metric = Metric({'train': {'Local': ['Local-Loss', 'Local-Accuracy']},
                      'test': {'Local': ['Local-Loss', 'Local-Accuracy'], 'Global': ['Global-Loss', 'Global-Accuracy']}})
-    # dataset = make_student_dataset(student_dataset, teacher_model)
-    dataset = teacher_dataset
-    data_split, target_split = split_dataset(dataset, cfg['num_users'], cfg['data_split_mode'])
+    teacher_dataset['train'], student_dataset['train'] = separate_dataset(teacher_dataset['train'],
+                                                                          student_dataset['train'],
+                                                                          cfg['supervise_rate'])
+    data_split, target_split = split_dataset(student_dataset, cfg['num_users'], cfg['data_split_mode'])
     if cfg['resume_mode'] == 1:
         result = resume(cfg['model_tag'])
         last_epoch = result['epoch']
         logger = result['logger']
         if last_epoch > 1:
-            student_model.load_state_dict(result['model_state_dict'])
+            model.load_state_dict(result['model_state_dict'])
             local_optimizer.load_state_dict(result['local_optimizer_state_dict'])
             local_scheduler.load_state_dict(result['local_scheduler_state_dict'])
             global_optimizer.load_state_dict(result['global_optimizer_state_dict'])
@@ -81,13 +79,16 @@ def runExperiment():
         current_time = datetime.datetime.now().strftime('%b%d_%H-%M-%S')
         logger_path = 'output/runs/train_{}_{}'.format(cfg['model_tag'], current_time)
         logger = Logger(logger_path)
-    federation = Federation(teacher_model.state_dict(), student_model.state_dict(), global_optimizer.state_dict(),
-                            data_split, target_split)
+    federation = Federation(model.state_dict(), global_optimizer.state_dict(), data_split, target_split)
     for epoch in range(last_epoch, cfg['global']['num_epochs'] + 1):
         logger.safe(True)
-        train(dataset['train'], federation, student_model, global_optimizer, local_optimizer, metric, logger, epoch)
-        test_student_model = make_stats_batchnorm(teacher_dataset['train'], student_model, 'global')
-        test(teacher_dataset['test'], test_student_model, metric, logger, epoch)
+        train_teacher(teacher_dataset['train'], model, local_optimizer, metric, logger, epoch)
+        test_model = make_stats_batchnorm_fed(teacher_dataset['train'], student_dataset['train'], model, 'a', 'global')
+        student_dataset['train'] = make_student_dataset(student_dataset['train'], test_model)
+        train_student(student_dataset['train'], federation, model, global_optimizer, local_optimizer, metric, logger,
+                      epoch)
+        test_model = make_stats_batchnorm_fed(teacher_dataset['train'], student_dataset['train'], model, 'b', 'global')
+        test(teacher_dataset['test'], test_model, metric, logger, epoch)
         if cfg['local']['scheduler_name'] == 'ReduceLROnPlateau':
             local_scheduler.step(metrics=logger.mean['train/{}'.format(cfg['pivot_metric'])])
         else:
@@ -97,7 +98,7 @@ def runExperiment():
         else:
             global_scheduler.step()
         logger.safe(False)
-        model_state_dict = test_student_model.state_dict()
+        model_state_dict = test_model.state_dict()
         result = {'cfg': cfg, 'epoch': epoch + 1, 'data_split': data_split, 'target_split': target_split,
                   'model_state_dict': model_state_dict, 'local_optimizer_state_dict': local_optimizer.state_dict(),
                   'local_scheduler_state_dict': local_scheduler.state_dict(),
@@ -113,7 +114,38 @@ def runExperiment():
     return
 
 
-def train(dataset, federation, student_model, global_optimizer, local_optimizer, metric, logger, epoch):
+def train_teacher(dataset, model, optimizer, metric, logger, epoch):
+    data_loader = make_data_loader({'train': dataset['train']}, 'local')['train']
+    model.train(True)
+    start_time = time.time()
+    for i, input in enumerate(data_loader):
+        input = collate(input)
+        input_size = input['data'].size(0)
+        input = to_device(input, cfg['device'])
+        optimizer.zero_grad()
+        output = model(input)
+        output['loss'] = output['loss'].mean() if cfg['world_size'] > 1 else output['loss']
+        output['loss'].backward()
+        torch.nn.utils.clip_grad_norm_(model.parameters(), 1)
+        optimizer.step()
+        evaluation = metric.evaluate(metric.metric_name['train'], input, output)
+        logger.append(evaluation, 'train', n=input_size)
+        if i % int((len(data_loader) * cfg['log_interval']) + 1) == 0:
+            batch_time = (time.time() - start_time) / (i + 1)
+            lr = optimizer.param_groups[0]['lr']
+            epoch_finished_time = datetime.timedelta(seconds=round(batch_time * (len(data_loader) - i - 1)))
+            exp_finished_time = epoch_finished_time + datetime.timedelta(
+                seconds=round((cfg[cfg['model_name']]['num_epochs'] - epoch) * batch_time * len(data_loader)))
+            info = {'info': ['Model: {}'.format(cfg['model_tag']),
+                             'Train Epoch: {}({:.0f}%)'.format(epoch, 100. * i / len(data_loader)),
+                             'Learning rate: {:.6f}'.format(lr), 'Epoch Finished Time: {}'.format(epoch_finished_time),
+                             'Experiment Finished Time: {}'.format(exp_finished_time)]}
+            logger.append(info, 'train', mean=False)
+            print(logger.write('train', metric.metric_name['train']['Local']))
+    return
+
+
+def train_student(dataset, federation, model, global_optimizer, local_optimizer, metric, logger, epoch):
     local, local_parameters, user_idx = make_local(dataset, federation)
     num_active_users = len(local)
     cfg['local']['lr'] = local_optimizer.param_groups[0]['lr']
@@ -133,7 +165,7 @@ def train(dataset, federation, student_model, global_optimizer, local_optimizer,
                              'Experiment Finished Time: {}'.format(exp_finished_time)]}
             logger.append(info, 'train', mean=False)
             print(logger.write('train', metric.metric_name['train']['Local']))
-    federation.update(student_model, global_optimizer, local_parameters)
+    federation.update(model, global_optimizer, local_parameters)
     return
 
 
@@ -181,13 +213,13 @@ def test(dataset, model, metric, logger, epoch):
 
 
 def make_local(dataset, federation):
-    num_active_users = int(np.ceil(cfg['frac'] * cfg['num_users']))
+    num_active_users = int(np.ceil(cfg['active_rate'] * cfg['num_users']))
     user_idx = torch.arange(cfg['num_users'])[torch.randperm(cfg['num_users'])[:num_active_users]].tolist()
     local_parameters = federation.distribute(user_idx)
     local = [None for _ in range(num_active_users)]
     for m in range(num_active_users):
         data_loader_m = make_data_loader({
-            'train': SplitDataset(dataset, federation.data_split['train'][user_idx[m]])}, 'local')['train']
+            'train': Subset(dataset, federation.data_split['train'][user_idx[m]])}, 'local')['train']
         local[m] = Local(data_loader_m, federation.target_split[user_idx[m]])
     return local, local_parameters, user_idx
 

@@ -109,14 +109,14 @@ def process_control():
     cfg['active_rate'] = float(cfg['control']['active_rate'])
     cfg['data_split_mode'] = cfg['control']['data_split_mode']
     cfg['augment'] = cfg['control']['augment']
-    data_shape = {'MNIST': [1, 28, 28], 'CIFAR10': [3, 32, 32], 'CIFAR100': [3, 32, 32]}
+    cfg['supervise_rate'] = float(cfg['control']['supervise_rate'])
+    cfg['student_data_name'] = cfg['control']['student_data_name']
+    data_shape = {'CIFAR10': [3, 32, 32], 'CIFAR100': [3, 32, 32]}
     cfg['data_shape'] = data_shape[cfg['data_name']]
     cfg['conv'] = {'hidden_size': [64, 128, 256, 512]}
     cfg['resnet18'] = {'hidden_size': [64, 128, 256, 512]}
     cfg['wresnet28x10'] = {'depth': 28, 'widen_factor': 10, 'drop_rate': 0.0}
     if cfg['data_split_mode'] in ['iid']:
-        student_data_name = {'CIFAR10': 'CIFAR100', 'CIFAR100': 'CIFAR10'}
-        cfg['student_data_name'] = student_data_name[cfg['data_name']]
         model_name = cfg['model_name']
         cfg[model_name]['shuffle'] = {'train': True, 'test': False}
         cfg['local'] = {}
