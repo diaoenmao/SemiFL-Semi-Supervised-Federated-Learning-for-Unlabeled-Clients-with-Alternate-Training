@@ -92,7 +92,7 @@ def resnet18():
     data_shape = cfg['data_shape']
     target_size = cfg['target_size']
     hidden_size = cfg['resnet18']['hidden_size']
-    model = ResNet(data_shape, hidden_size, Block, [1, 1, 1, 2], target_size)
+    model = ResNet(data_shape, hidden_size, Block, [2, 2, 2, 2], target_size)
     model.apply(init_param)
     model.apply(lambda m: make_batchnorm(m, momentum=None, track_running_stats=False))
     return model

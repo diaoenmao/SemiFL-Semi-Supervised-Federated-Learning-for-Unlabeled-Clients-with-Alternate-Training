@@ -8,7 +8,7 @@ import time
 import torch
 import torch.backends.cudnn as cudnn
 from config import cfg
-from data import fetch_dataset, make_data_loader, make_stats_batchnorm
+from data import fetch_dataset, make_data_loader, separate_dataset, make_stats_batchnorm
 from metrics import Metric
 from utils import save, to_device, process_control, process_dataset, make_optimizer, make_scheduler, resume, collate
 from logger import Logger
@@ -46,6 +46,7 @@ def runExperiment():
     torch.cuda.manual_seed(cfg['seed'])
     dataset = fetch_dataset(cfg['data_name'])
     process_dataset(dataset)
+    dataset['train'] = separate_dataset(dataset['train'], cfg['supervise_rate'])
     data_loader = make_data_loader(dataset, cfg['model_name'])
     model = eval('models.{}().to(cfg["device"])'.format(cfg['model_name']))
     init_model_state_dict = copy.deepcopy(model.state_dict())

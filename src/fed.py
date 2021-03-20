@@ -29,25 +29,16 @@ class Federation:
 
     def update(self, model, global_optimizer, local_parameters):
         global_optimizer.zero_grad()
-        # for k, v in model.named_parameters():
-        #     v.grad = torch.ones(v.size(), dtype=torch.float, device=cfg['device'])
-        #     print(k, v.sum(), v.grad.sum())
-        # global_optimizer.step()
-        # for k, v in student_model.named_parameters():
-        #     print(k, v.sum(), v.grad.sum())
-        # exit()
         for k, v in model.named_parameters():
             parameter_type = k.split('.')[-1]
-            tmp_v = v.new_zeros(v.size(), dtype=torch.float32)
             if 'weight' in parameter_type or 'bias' in parameter_type:
+                tmp_v = v.new_zeros(v.size(), dtype=torch.float32)
                 for m in range(len(local_parameters)):
                     tmp_v += self.local_weight['train'][m] * local_parameters[m][k]
                 v.grad = (v - tmp_v.to(v.dtype)).detach()
-                print(k, v.sum(), v.grad.sum())
+                # v.data = tmp_v.data
+        # torch.nn.utils.clip_grad_norm_(model.parameters(), 1)
         global_optimizer.step()
-        # for k, v in model.state_dict().items():
-        #     print(k, v.sum())
-        # exit()
         self.model_state_dict = model.state_dict()
         self.global_optimizer_state_dict = global_optimizer.state_dict()
         return

@@ -30,10 +30,10 @@ class Metric(object):
         return metric_name
 
     def make_pivot(self):
-        if cfg['data_name'] in ['CIFAR10', 'CIFAR100']:
+        if cfg['data_name'] in ['MNIST', 'CIFAR10', 'CIFAR100']:
             pivot = -float('inf')
             pivot_direction = 'up'
-            if cfg['num_users'] > 1:
+            if cfg['data_split_mode'] == 'iid':
                 pivot_name = 'Global-Accuracy'
             else:
                 pivot_name = 'Accuracy'

@@ -111,7 +111,8 @@ def process_control():
     cfg['augment'] = cfg['control']['augment']
     cfg['supervise_rate'] = float(cfg['control']['supervise_rate'])
     cfg['student_data_name'] = cfg['control']['student_data_name']
-    data_shape = {'CIFAR10': [3, 32, 32], 'CIFAR100': [3, 32, 32]}
+    cfg['supervise_mode'] = cfg['control']['supervise_mode']
+    data_shape = {'MNIST': [1, 28, 28], 'CIFAR10': [3, 32, 32], 'CIFAR100': [3, 32, 32]}
     cfg['data_shape'] = data_shape[cfg['data_name']]
     cfg['conv'] = {'hidden_size': [64, 128, 256, 512]}
     cfg['resnet18'] = {'hidden_size': [64, 128, 256, 512]}
@@ -126,22 +127,21 @@ def process_control():
         cfg['local']['momentum'] = 0.9
         cfg['local']['weight_decay'] = 5e-4
         cfg['local']['nesterov'] = True
-        cfg['local']['scheduler_name'] = 'CosineAnnealingLR'
         cfg['global'] = {}
         cfg['global']['shuffle'] = {'train': True, 'test': False}
         cfg['global']['optimizer_name'] = 'SGD'
         cfg['global']['lr'] = 1
-        cfg['global']['momentum'] = 0.9
+        cfg['global']['momentum'] = 0
         cfg['global']['weight_decay'] = 0
-        cfg['global']['nesterov'] = True
-        cfg['global']['scheduler_name'] = 'None'
+        cfg['global']['nesterov'] = False
+        cfg['global']['scheduler_name'] = 'CosineAnnealingLR'
         if cfg['data_split_mode'] == 'iid':
-            cfg['local']['num_epochs'] = 5
+            cfg['local']['num_epochs'] = 1
             cfg['global']['num_epochs'] = 400
-            cfg['local']['batch_size'] = {'train': 10, 'test': 250}
+            cfg['local']['batch_size'] = {'train': 250, 'test': 250}
             cfg['global']['batch_size'] = {'train': 250, 'test': 250}
         elif 'non-iid' in cfg['data_split_mode']:
-            cfg['local']['num_epochs'] = 5
+            cfg['local']['num_epochs'] = 1
             cfg['global']['num_epochs'] = 800
             cfg[model_name]['batch_size'] = {'train': 10, 'test': 250}
         else:

@@ -82,7 +82,10 @@ def split_dataset(dataset, num_users, data_split_mode):
 
 
 def iid(dataset, num_users):
-    target = torch.tensor(dataset.target)
+    if isinstance(dataset, Subset):
+        target = torch.tensor(dataset.dataset.target)[dataset.indices]
+    else:
+        target = torch.tensor(dataset.target)
     num_items = int(len(dataset) / num_users)
     data_split, idx = {}, list(range(len(dataset)))
     target_split = {}
@@ -95,7 +98,10 @@ def iid(dataset, num_users):
 
 
 def non_iid(dataset, num_users, target_split=None):
-    target = np.array(dataset.target)
+    if isinstance(dataset, Subset):
+        target = np.array(dataset.dataset.target)[dataset.indices]
+    else:
+        target = np.array(dataset.target)
     cfg['non-iid-n'] = int(cfg['data_split_mode'].split('-')[-1])
     shard_per_user = cfg['non-iid-n']
     data_split = {i: [] for i in range(num_users)}
@@ -129,7 +135,16 @@ def non_iid(dataset, num_users, target_split=None):
     return data_split, target_split
 
 
-def separate_dataset(teacher_dataset, student_dataset, supervise_rate):
+def separate_dataset(dataset, supervise_rate):
+    num_items = int(len(dataset) * supervise_rate)
+    idx = list(range(len(dataset)))
+    randperm = torch.randperm(len(idx))
+    data_supervise = torch.tensor(idx)[randperm[:num_items]]
+    dataset = Subset(dataset, data_supervise)
+    return dataset
+
+
+def separate_dataset_fed(teacher_dataset, student_dataset, supervise_rate):
     num_items = int(len(teacher_dataset) * supervise_rate)
     idx = list(range(len(teacher_dataset)))
     randperm = torch.randperm(len(idx))
@@ -150,23 +165,24 @@ def make_stats_batchnorm(dataset, model, tag):
     with torch.no_grad():
         test_model = copy.deepcopy(model)
         test_model.apply(lambda m: models.make_batchnorm(m, momentum=None, track_running_stats=True))
-        _transform = dataset.transform
+        _transform = dataset.dataset.transform
         if cfg['data_name'] in ['MNIST']:
-            dataset.transform = datasets.Compose([transforms.ToTensor(),
-                                                  transforms.Normalize((0.1307,), (0.3081,))])
+            transform = datasets.Compose([transforms.ToTensor(),
+                                          transforms.Normalize((0.1307,), (0.3081,))])
         elif cfg['data_name'] in ['CIFAR10', 'CIFAR100']:
-            dataset.transform = datasets.Compose([transforms.ToTensor(),
-                                                  transforms.Normalize((0.4914, 0.4822, 0.4465),
-                                                                       (0.2023, 0.1994, 0.2010))])
+            transform = datasets.Compose([transforms.ToTensor(),
+                                          transforms.Normalize((0.4914, 0.4822, 0.4465),
+                                                               (0.2023, 0.1994, 0.2010))])
         else:
             raise ValueError('Not valid dataset name')
+        dataset.dataset.transform = transform
         data_loader = make_data_loader({'train': dataset}, tag, shuffle={'train': False})['train']
         test_model.train(True)
         for i, input in enumerate(data_loader):
             input = collate(input)
             input = to_device(input, cfg['device'])
             test_model(input)
-        dataset.transform = _transform
+        dataset.dataset.transform = _transform
     return test_model
 
 
