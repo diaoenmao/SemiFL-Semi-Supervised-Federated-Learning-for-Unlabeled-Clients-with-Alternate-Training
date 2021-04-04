@@ -4,14 +4,14 @@ control:
   num_users: '1'
   active_rate: '1'
   data_split_mode: 'iid'
-  augment: 'ra'
+  augment: 'none'
   supervise_rate: '0.05'
-  student_data_name: 'CIFAR10'
-  supervise_mode: 'join'
+  student_data_name: 'none '
+  supervise_mode: 'none'
 # data
 data_name: CIFAR10
 # MNIST
-model_name: resnet18
+model_name: conv
 # experiment
 num_workers: 0
 init_seed: 0

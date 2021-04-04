@@ -117,46 +117,48 @@ def process_control():
     cfg['conv'] = {'hidden_size': [64, 128, 256, 512]}
     cfg['resnet18'] = {'hidden_size': [64, 128, 256, 512]}
     cfg['wresnet28x10'] = {'depth': 28, 'widen_factor': 10, 'drop_rate': 0.0}
-    if cfg['data_split_mode'] in ['iid']:
-        model_name = cfg['model_name']
-        cfg[model_name]['shuffle'] = {'train': True, 'test': False}
-        cfg['local'] = {}
-        cfg['local']['shuffle'] = {'train': True, 'test': False}
-        cfg['local']['optimizer_name'] = 'SGD'
-        cfg['local']['lr'] = 1e-1
-        cfg['local']['momentum'] = 0.9
-        cfg['local']['weight_decay'] = 5e-4
-        cfg['local']['nesterov'] = True
-        cfg['global'] = {}
-        cfg['global']['shuffle'] = {'train': True, 'test': False}
-        cfg['global']['optimizer_name'] = 'SGD'
-        cfg['global']['lr'] = 1
-        cfg['global']['momentum'] = 0
-        cfg['global']['weight_decay'] = 0
-        cfg['global']['nesterov'] = False
-        cfg['global']['scheduler_name'] = 'CosineAnnealingLR'
-        if cfg['data_split_mode'] == 'iid':
-            cfg['local']['num_epochs'] = 1
-            cfg['global']['num_epochs'] = 400
-            cfg['local']['batch_size'] = {'train': 250, 'test': 250}
-            cfg['global']['batch_size'] = {'train': 250, 'test': 250}
-        elif 'non-iid' in cfg['data_split_mode']:
-            cfg['local']['num_epochs'] = 1
-            cfg['global']['num_epochs'] = 800
-            cfg[model_name]['batch_size'] = {'train': 10, 'test': 250}
-        else:
-            raise ValueError('Not valid data_split_mode')
-    else:
-        model_name = cfg['model_name']
-        cfg[model_name]['shuffle'] = {'train': True, 'test': False}
-        cfg[model_name]['optimizer_name'] = 'SGD'
-        cfg[model_name]['lr'] = 1e-1
-        cfg[model_name]['momentum'] = 0.9
-        cfg[model_name]['weight_decay'] = 5e-4
-        cfg[model_name]['nesterov'] = True
-        cfg[model_name]['scheduler_name'] = 'CosineAnnealingLR'
-        cfg[model_name]['num_epochs'] = 200
-        cfg[model_name]['batch_size'] = {'train': 250, 'test': 250}
+    # if cfg['data_split_mode'] in ['iid']:
+    #     model_name = cfg['model_name']
+    #     cfg[model_name]['shuffle'] = {'train': True, 'test': False}
+    #     cfg['local'] = {}
+    #     cfg['local']['shuffle'] = {'train': True, 'test': False}
+    #     cfg['local']['optimizer_name'] = 'SGD'
+    #     cfg['local']['lr'] = 1e-1
+    #     cfg['local']['momentum'] = 0.9
+    #     cfg['local']['weight_decay'] = 5e-4
+    #     cfg['local']['nesterov'] = True
+    #     cfg['global'] = {}
+    #     cfg['global']['shuffle'] = {'train': True, 'test': False}
+    #     cfg['global']['optimizer_name'] = 'SGD'
+    #     cfg['global']['lr'] = 1
+    #     cfg['global']['momentum'] = 0
+    #     cfg['global']['weight_decay'] = 0
+    #     cfg['global']['nesterov'] = False
+    #     cfg['global']['scheduler_name'] = 'CosineAnnealingLR'
+    #     if cfg['data_split_mode'] == 'iid':
+    #         cfg['local']['num_epochs'] = 1
+    #         cfg['global']['num_epochs'] = 400
+    #         cfg['local']['batch_size'] = {'train': 250, 'test': 250}
+    #         cfg['global']['batch_size'] = {'train': 250, 'test': 250}
+    #     elif 'non-iid' in cfg['data_split_mode']:
+    #         cfg['local']['num_epochs'] = 1
+    #         cfg['global']['num_epochs'] = 800
+    #         cfg[model_name]['batch_size'] = {'train': 10, 'test': 250}
+    #     else:
+    #         raise ValueError('Not valid data_split_mode')
+    # else:
+    model_name = cfg['model_name']
+    cfg[model_name]['shuffle'] = {'train': True, 'test': False}
+    cfg[model_name]['optimizer_name'] = 'SGD'
+    cfg[model_name]['lr'] = 1e-1
+    cfg[model_name]['momentum'] = 0.9
+    cfg[model_name]['weight_decay'] = 5e-4
+    cfg[model_name]['nesterov'] = True
+    cfg[model_name]['scheduler_name'] = 'MultiStepLR'
+    cfg[model_name]['factor'] = 0.1
+    cfg[model_name]['milestones'] = [100, 200, 300]
+    cfg[model_name]['num_epochs'] = 400
+    cfg[model_name]['batch_size'] = {'train': 250, 'test': 500}
     return
 
 

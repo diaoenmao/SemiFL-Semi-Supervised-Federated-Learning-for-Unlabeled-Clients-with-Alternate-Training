@@ -2,6 +2,7 @@ import copy
 import torch
 import numpy as np
 import models
+import torch.nn.functional as F
 from config import cfg
 from torchvision import transforms
 from torch.utils.data import DataLoader, Subset, ConcatDataset
@@ -135,28 +136,26 @@ def non_iid(dataset, num_users, target_split=None):
     return data_split, target_split
 
 
-def separate_dataset(dataset, supervise_rate):
-    num_items = int(len(dataset) * supervise_rate)
+def separate_dataset(dataset, data_separate=None):
     idx = list(range(len(dataset)))
-    randperm = torch.randperm(len(idx))
-    data_supervise = torch.tensor(idx)[randperm[:num_items]]
-    dataset = Subset(dataset, data_supervise)
-    return dataset
+    if data_separate is None:
+        num_items = int(len(dataset) * cfg['supervise_rate'])
+        randperm = torch.randperm(len(idx))
+        data_separate = torch.tensor(idx)[randperm[:num_items]]
+    dataset = Subset(dataset, data_separate)
+    return dataset, data_separate
 
 
-def separate_dataset_fed(teacher_dataset, student_dataset, supervise_rate):
-    num_items = int(len(teacher_dataset) * supervise_rate)
+def separate_dataset_ts(teacher_dataset, student_dataset, data_separate):
     idx = list(range(len(teacher_dataset)))
-    randperm = torch.randperm(len(idx))
-    data_supervise = torch.tensor(idx)[randperm[:num_items]]
-    teacher_dataset = Subset(teacher_dataset, data_supervise)
+    teacher_dataset = Subset(teacher_dataset, data_separate)
     if cfg['data_name'] == cfg['student_data_name']:
-        data_unsupervise = torch.tensor(idx)[randperm[num_items:]]
-        student_dataset = Subset(student_dataset, data_unsupervise)
+        data_unseparate = torch.tensor(list(set(idx) - set(data_separate.tolist())))
+        student_dataset = Subset(student_dataset, data_unseparate)
     else:
         idx = list(range(len(student_dataset)))
-        data_unsupervise = torch.tensor(idx)
-        student_dataset = Subset(student_dataset, data_unsupervise)
+        data_unseparate = torch.tensor(idx)
+        student_dataset = Subset(student_dataset, data_unseparate)
     return teacher_dataset, student_dataset
 
 
@@ -186,7 +185,7 @@ def make_stats_batchnorm(dataset, model, tag):
     return test_model
 
 
-def make_stats_batchnorm_fed(teacher_dataset, student_dataset, model, mode, tag):
+def make_stats_batchnorm_ts(teacher_dataset, student_dataset, model, tag):
     import datasets
     with torch.no_grad():
         test_model = copy.deepcopy(model)
@@ -204,18 +203,7 @@ def make_stats_batchnorm_fed(teacher_dataset, student_dataset, model, mode, tag)
             raise ValueError('Not valid dataset name')
         teacher_dataset.dataset.transform = transform
         student_dataset.dataset.transform = transform
-        if mode == 'a':
-            if cfg['data_name'] == cfg['student_data_name']:
-                dataset = ConcatDataset([teacher_dataset, student_dataset])
-            else:
-                dataset = ConcatDataset([student_dataset])
-        elif mode == 'b':
-            if cfg['data_name'] == cfg['student_data_name']:
-                dataset = ConcatDataset([teacher_dataset, student_dataset])
-            else:
-                dataset = ConcatDataset([teacher_dataset])
-        else:
-            raise ValueError('Not valid mode')
+        dataset = ConcatDataset([teacher_dataset, student_dataset])
         data_loader = make_data_loader({'train': dataset}, tag, shuffle={'train': False})['train']
         test_model.train(True)
         for i, input in enumerate(data_loader):
@@ -225,3 +213,47 @@ def make_stats_batchnorm_fed(teacher_dataset, student_dataset, model, mode, tag)
         teacher_dataset.dataset.transform = teacher_transform
         student_dataset.dataset.transform = student_transform
     return test_model
+
+
+def make_student_dataset(student_dataset, model):
+    import datasets
+    with torch.no_grad():
+        student_transform = student_dataset.dataset.transform
+        if cfg['data_name'] in ['MNIST']:
+            transform = datasets.Compose([transforms.ToTensor(),
+                                          transforms.Normalize((0.1307,), (0.3081,))])
+        elif cfg['data_name'] in ['CIFAR10', 'CIFAR100']:
+            transform = datasets.Compose([transforms.ToTensor(),
+                                          transforms.Normalize((0.4914, 0.4822, 0.4465),
+                                                               (0.2023, 0.1994, 0.2010))])
+        else:
+            raise ValueError('Not valid dataset name')
+        student_dataset.dataset.transform = transform
+        student_data_loader = make_data_loader({'train': student_dataset.dataset}, cfg['model_name'],
+                                               shuffle={'train': False})['train']
+        model.train(False)
+        target = []
+        for i, input in enumerate(student_data_loader):
+            input = collate(input)
+            input['target'] = None
+            input = to_device(input, cfg['device'])
+            output = model(input)
+            target.append(output['target'])
+        target = torch.cat(target, dim=0).cpu().numpy()
+        student_dataset.dataset.target = target
+        student_dataset.dataset.transform = student_transform
+    return student_dataset
+
+
+def make_teacher_dataset(teacher_dataset):
+    with torch.no_grad():
+        teacher_data_loader = make_data_loader({'train': teacher_dataset.dataset}, cfg['model_name'],
+                                               shuffle={'train': False})['train']
+        target = []
+        for i, input in enumerate(teacher_data_loader):
+            input = collate(input)
+            target_i = F.one_hot(input['target'], cfg['target_size']).float()
+            target.append(target_i)
+        target = torch.cat(target, dim=0).cpu().numpy()
+        teacher_dataset.dataset.target = target
+    return teacher_dataset

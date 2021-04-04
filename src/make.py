@@ -39,25 +39,39 @@ def main():
     model = args['model']
     file = args['file']
     gpu_ids = [','.join(str(i) for i in list(range(x, x + world_size))) for x in list(range(0, num_gpus, world_size))]
-    script_name = [['{}_{}.py'.format(run, file)]]
     init_seeds = [list(range(init_seed, init_seed + num_experiments, experiment_step))]
     world_size = [[world_size]]
     num_experiments = [[experiment_step]]
     resume_mode = [[resume_mode]]
-    if file == 'classifier':
-        filename = '{}_{}'.format(run, file)
+    if file == 'teacher':
+        filename = '{}_{}_{}'.format(run, file, model)
+        script_name = [['{}_classifier_teacher.py'.format(run)]]
         model_names = [[model]]
         data_names = [['CIFAR10']]
-        control_name = [[['1'], ['1'], ['none'], ['none', 'ra'], ['0.05'], ['CIFAR10'], ['none']]]
+        control_name = [[['1'], ['1'], ['none'], ['none', 'ra'], ['0.05'], ['none'], ['none']]]
         cifar10_controls = make_controls(script_name, data_names, model_names, init_seeds, world_size, num_experiments,
                                          resume_mode, control_name)
         data_names = [['CIFAR100']]
-        control_name = [[['1'], ['1'], ['none'], ['none', 'ra'], ['0.05'], ['CIFAR100'], ['none']]]
+        control_name = [[['1'], ['1'], ['none'], ['none', 'ra'], ['0.05'], ['none'], ['none']]]
         cifar100_controls = make_controls(script_name, data_names, model_names, init_seeds, world_size, num_experiments,
                                           resume_mode, control_name)
         controls = cifar10_controls + cifar100_controls
-    elif file == 'classifier_fed':
-        filename = '{}_{}'.format(run, model)
+    elif file == 'student':
+        filename = '{}_{}_{}'.format(run, file, model)
+        script_name = [['{}_classifier_student.py'.format(run)]]
+        model_names = [[model]]
+        data_names = [['CIFAR10']]
+        control_name = [[['1'], ['1'], ['iid'], ['none', 'ra'], ['0.05'], ['CIFAR10'], ['none']]]
+        cifar10_controls = make_controls(script_name, data_names, model_names, init_seeds, world_size, num_experiments,
+                                         resume_mode, control_name)
+        data_names = [['CIFAR100']]
+        control_name = [[['1'], ['1'], ['iid'], ['none', 'ra'], ['0.05'], ['CIFAR100'], ['none']]]
+        cifar100_controls = make_controls(script_name, data_names, model_names, init_seeds, world_size, num_experiments,
+                                          resume_mode, control_name)
+        controls = cifar10_controls + cifar100_controls
+    elif file == 'fed':
+        filename = '{}_{}_{}'.format(run, file, model)
+        script_name = [['{}_classifier_fed.py'.format(run)]]
         model_names = [[model]]
         data_names = [['CIFAR10']]
         control_name = [[['1'], ['1'], ['iid'], ['none', 'ra'], ['0.05'], ['CIFAR10'], ['join']]]

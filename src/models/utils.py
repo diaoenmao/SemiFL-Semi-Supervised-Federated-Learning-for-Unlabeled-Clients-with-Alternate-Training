@@ -28,8 +28,8 @@ def loss_fn(output, input):
             loss = F.cross_entropy(output['target'], input['target'])
         else:
             # loss = mse_loss(output['target'], input['target'])
-            # loss = cross_entropy_loss(output['target'], input['target'])
-            loss = kld_loss(output['target'], input['target'])
+            loss = cross_entropy_loss(output['target'], input['target'])
+            # loss = kld_loss(output['target'], input['target'])
     else:
         return None
     return loss

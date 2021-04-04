@@ -44,14 +44,16 @@ def runExperiment():
     torch.cuda.manual_seed(cfg['seed'])
     dataset = fetch_dataset(cfg['data_name'])
     process_dataset(dataset)
-    dataset['train'] = separate_dataset(dataset['train'], cfg['supervise_rate'])
-    data_loader = make_data_loader(dataset, cfg['model_name'])
     model = eval('models.{}().to(cfg["device"])'.format(cfg['model_name']))
     metric = Metric({'test': ['Loss', 'Accuracy']})
     result = resume(cfg['model_tag'], load_tag='best')
     last_epoch = result['epoch']
+    data_separate = None
     if last_epoch > 1:
         model.load_state_dict(result['model_state_dict'])
+        data_separate = result['data_separate']
+    dataset['train'], _ = separate_dataset(dataset['train'], data_separate)
+    data_loader = make_data_loader(dataset, cfg['model_name'])
     current_time = datetime.datetime.now().strftime('%b%d_%H-%M-%S')
     logger_path = 'output/runs/test_{}_{}'.format(cfg['model_tag'], current_time)
     test_logger = Logger(logger_path)
