@@ -5,7 +5,7 @@ import torch
 import torch.backends.cudnn as cudnn
 import models
 from config import cfg
-from data import fetch_dataset, make_data_loader, separate_dataset, make_stats_batchnorm
+from data import fetch_dataset, make_data_loader, separate_dataset_ts, make_stats_batchnorm_ts
 from metrics import Metric
 from utils import save, to_device, process_control, process_dataset, resume, collate
 from logger import Logger
@@ -30,6 +30,9 @@ def main():
     process_control()
     seeds = list(range(cfg['init_seed'], cfg['init_seed'] + cfg['num_experiments']))
     for i in range(cfg['num_experiments']):
+        teacher_control_name = '1_1_none_{}_{}_none_none'.format(cfg['augment'], cfg['supervise_rate'])
+        teacher_model_tag_list = [str(seeds[i]), cfg['data_name'], cfg['model_name'], teacher_control_name]
+        cfg['teacher_model_tag'] = '_'.join([x for x in teacher_model_tag_list if x])
         model_tag_list = [str(seeds[i]), cfg['data_name'], cfg['model_name'], cfg['control_name']]
         cfg['model_tag'] = '_'.join([x for x in model_tag_list if x])
         print('Experiment: {}'.format(cfg['model_tag']))
@@ -41,24 +44,27 @@ def runExperiment():
     cfg['seed'] = int(cfg['model_tag'].split('_')[0])
     torch.manual_seed(cfg['seed'])
     torch.cuda.manual_seed(cfg['seed'])
-    dataset = fetch_dataset(cfg['data_name'])
-    process_dataset(dataset)
+    teacher_dataset = fetch_dataset(cfg['data_name'])
+    student_dataset = fetch_dataset(cfg['student_data_name'])
+    process_dataset(teacher_dataset)
+    teacher_model = eval('models.{}().to(cfg["device"])'.format(cfg['model_name']))
+    teacher_result = resume(cfg['teacher_model_tag'], load_tag='best')
+    teacher_model.load_state_dict(teacher_result['model_state_dict'])
+    data_separate = teacher_result['data_separate']
+    teacher_dataset['train'], student_dataset['train'] = separate_dataset_ts(teacher_dataset['train'],
+                                                                             student_dataset['train'], data_separate)
     model = eval('models.{}().to(cfg["device"])'.format(cfg['model_name']))
     metric = Metric({'test': ['Loss', 'Accuracy']})
     result = resume(cfg['model_tag'], load_tag='best')
     last_epoch = result['epoch']
-    data_separate = None
-    if last_epoch > 1:
-        model.load_state_dict(result['model_state_dict'])
-        data_separate = result['data_separate']
-    dataset['train'], _ = separate_dataset(dataset['train'], data_separate)
-    data_loader = make_data_loader(dataset, cfg['model_name'])
+    model.load_state_dict(result['model_state_dict'])
     current_time = datetime.datetime.now().strftime('%b%d_%H-%M-%S')
     logger_path = 'output/runs/test_{}_{}'.format(cfg['model_tag'], current_time)
     test_logger = Logger(logger_path)
     test_logger.safe(True)
-    model = make_stats_batchnorm(dataset['train'], model, cfg['model_name'])
-    test(data_loader['test'], model, metric, test_logger, last_epoch)
+    test_model = make_stats_batchnorm_ts(teacher_dataset['train'], student_dataset['train'], teacher_model,
+                                         cfg['model_name'])
+    test(teacher_dataset['test'], test_model, metric, test_logger, last_epoch)
     test_logger.safe(False)
     result = resume(cfg['model_tag'], load_tag='checkpoint')
     train_logger = result['logger']
@@ -67,7 +73,8 @@ def runExperiment():
     return
 
 
-def test(data_loader, model, metric, logger, epoch):
+def test(teacher_dataset, model, metric, logger, epoch):
+    data_loader = make_data_loader({'test': teacher_dataset}, cfg['model_name'])['test']
     with torch.no_grad():
         model.train(False)
         for i, input in enumerate(data_loader):

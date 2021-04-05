@@ -1,5 +1,4 @@
 import argparse
-import copy
 import datetime
 import models
 import os
@@ -81,7 +80,6 @@ def runExperiment():
         model = torch.nn.DataParallel(model, device_ids=list(range(cfg['world_size'])))
     test_model = make_stats_batchnorm_ts(teacher_dataset['train'], student_dataset['train'], teacher_model,
                                          cfg['model_name'])
-    test(teacher_dataset['test'], test_model, metric, logger, 0)
     student_dataset['train'] = make_student_dataset(student_dataset['train'], test_model)
     teacher_dataset['train'] = make_teacher_dataset(teacher_dataset['train'])
     for epoch in range(last_epoch, cfg[cfg['model_name']]['num_epochs'] + 1):
