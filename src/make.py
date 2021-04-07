@@ -61,11 +61,11 @@ def main():
         script_name = [['{}_classifier_student.py'.format(run)]]
         model_names = [[model]]
         data_names = [['CIFAR10']]
-        control_name = [[['1'], ['1'], ['iid'], ['none', 'ra'], ['0.05'], ['CIFAR10'], ['none']]]
+        control_name = [[['1'], ['1'], ['none'], ['none', 'ra'], ['0.05'], ['CIFAR10'], ['none']]]
         cifar10_controls = make_controls(script_name, data_names, model_names, init_seeds, world_size, num_experiments,
                                          resume_mode, control_name)
         data_names = [['CIFAR100']]
-        control_name = [[['1'], ['1'], ['iid'], ['none', 'ra'], ['0.05'], ['CIFAR100'], ['none']]]
+        control_name = [[['1'], ['1'], ['none'], ['none', 'ra'], ['0.05'], ['CIFAR100'], ['none']]]
         cifar100_controls = make_controls(script_name, data_names, model_names, init_seeds, world_size, num_experiments,
                                           resume_mode, control_name)
         controls = cifar10_controls + cifar100_controls

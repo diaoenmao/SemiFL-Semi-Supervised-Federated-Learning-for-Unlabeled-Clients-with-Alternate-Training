@@ -14,11 +14,33 @@ from logger import Logger
 
 
 
-if __name__ == "__main__":
-    p = torch.nn.Parameter(torch.ones(5))
-    optimizer = torch.optim.SGD([p], lr=1)
-    g = torch.ones(5)*0.5
-    p.grad = g
-    print(p)
-    optimizer.step()
-    print(p)
+# if __name__ == "__main__":
+#     p = torch.nn.Parameter(torch.ones(5))
+#     optimizer = torch.optim.SGD([p], lr=1)
+#     g = torch.ones(5)*0.5
+#     p.grad = g
+#     print(p)
+#     optimizer.step()
+#     print(p)
+
+
+# if __name__ == "__main__":
+#     import torch.nn.functional as F
+#     m = torch.distributions.dirichlet.Dirichlet(torch.ones(10))
+#     x = torch.randn(1, 10)
+#     p = F.softmax(x, dim=-1)
+#     y = m.sample((1,))
+#     label = (y.topk(1, 1, True, True)[1]).view(-1)
+#     onehot = F.one_hot(label, 10).float()
+#     m = (p + onehot) / 2
+#     print(y)
+#     print(label)
+#     print(onehot)
+#     ce = F.cross_entropy(x, label, reduction='mean')
+#     kld = F.kl_div(F.log_softmax(x, dim=-1), onehot, reduction='batchmean')
+#     js = F.kl_div(F.log_softmax(x, dim=-1), m, reduction='batchmean')
+#     js += F.kl_div(F.log_softmax(onehot.exp(), dim=-1), onehot, reduction='batchmean')
+#     js /= 2
+#     print(ce)
+#     print(kld)
+#     print(js)

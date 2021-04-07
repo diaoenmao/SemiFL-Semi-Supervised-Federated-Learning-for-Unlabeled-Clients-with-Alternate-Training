@@ -49,7 +49,6 @@ def runExperiment():
     dataset['train'], data_separate = separate_dataset(dataset['train'])
     data_loader = make_data_loader(dataset, cfg['model_name'])
     model = eval('models.{}().to(cfg["device"])'.format(cfg['model_name']))
-    init_model_state_dict = copy.deepcopy(model.state_dict())
     optimizer = make_optimizer(model, cfg['model_name'])
     scheduler = make_scheduler(optimizer, cfg['model_name'])
     metric = Metric({'train': ['Loss', 'Accuracy'], 'test': ['Loss', 'Accuracy']})
@@ -58,8 +57,6 @@ def runExperiment():
         last_epoch = result['epoch']
         logger = result['logger']
         if last_epoch > 1:
-            init_model_state_dict = result['init_model_state_dict']
-            data_separate = result['data_separate']
             model.load_state_dict(result['model_state_dict'])
             optimizer.load_state_dict(result['optimizer_state_dict'])
             scheduler.load_state_dict(result['scheduler_state_dict'])
@@ -78,8 +75,7 @@ def runExperiment():
         scheduler.step()
         logger.safe(False)
         model_state_dict = test_model.module.state_dict() if cfg['world_size'] > 1 else test_model.state_dict()
-        result = {'cfg': cfg, 'epoch': epoch + 1, 'init_model_state_dict': init_model_state_dict,
-                  'data_separate': data_separate, 'model_state_dict': model_state_dict,
+        result = {'cfg': cfg, 'epoch': epoch + 1, 'model_state_dict': model_state_dict,
                   'optimizer_state_dict': optimizer.state_dict(), 'scheduler_state_dict': scheduler.state_dict(),
                   'logger': logger}
         save(result, './output/model/{}_checkpoint.pt'.format(cfg['model_tag']))

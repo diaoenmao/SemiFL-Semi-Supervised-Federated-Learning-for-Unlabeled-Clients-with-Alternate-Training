@@ -3,11 +3,10 @@
 control:
   num_users: '1'
   active_rate: '1'
-  data_split_mode: 'iid'
-  augment: 'none'
-  supervise_rate: '0.05'
-  student_data_name: 'none '
-  supervise_mode: 'none'
+  data_split_mode: 'none'
+  supervise_rate: '0.08'
+  student_data_name: 'none'
+  student_model_name: 'none'
 # data
 data_name: CIFAR10
 # MNIST

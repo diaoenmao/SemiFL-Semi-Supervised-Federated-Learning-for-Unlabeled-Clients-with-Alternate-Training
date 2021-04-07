@@ -6,11 +6,10 @@ import shutil
 import time
 import torch
 import torch.backends.cudnn as cudnn
-from torch.utils.data import ConcatDataset
 from config import cfg
-from data import fetch_dataset, make_data_loader, separate_dataset_ts, make_stats_batchnorm, make_stats_batchnorm_ts, \
-    make_student_dataset, make_teacher_dataset
+from data import fetch_dataset, make_data_loader, separate_dataset_ts, make_stats_batchnorm
 from metrics import Metric
+from modules import Teacher, Student
 from utils import save, to_device, process_control, process_dataset, make_optimizer, make_scheduler, resume, collate
 from logger import Logger
 
@@ -34,9 +33,6 @@ def main():
     process_control()
     seeds = list(range(cfg['init_seed'], cfg['init_seed'] + cfg['num_experiments']))
     for i in range(cfg['num_experiments']):
-        teacher_control_name = '1_1_none_{}_{}_none_none'.format(cfg['augment'], cfg['supervise_rate'])
-        teacher_model_tag_list = [str(seeds[i]), cfg['data_name'], cfg['model_name'], teacher_control_name]
-        cfg['teacher_model_tag'] = '_'.join([x for x in teacher_model_tag_list if x])
         model_tag_list = [str(seeds[i]), cfg['data_name'], cfg['model_name'], cfg['control_name']]
         cfg['model_tag'] = '_'.join([x for x in model_tag_list if x])
         print('Experiment: {}'.format(cfg['model_tag']))
@@ -51,63 +47,79 @@ def runExperiment():
     teacher_dataset = fetch_dataset(cfg['data_name'])
     student_dataset = fetch_dataset(cfg['student_data_name'])
     process_dataset(teacher_dataset)
-    teacher_model = eval('models.{}().to(cfg["device"])'.format(cfg['model_name']))
-    teacher_result = resume(cfg['teacher_model_tag'], load_tag='best')
-    teacher_model.load_state_dict(teacher_result['model_state_dict'])
-    init_model_state_dict = teacher_result['init_model_state_dict']
-    data_separate = teacher_result['data_separate']
     teacher_dataset['train'], student_dataset['train'] = separate_dataset_ts(teacher_dataset['train'],
-                                                                             student_dataset['train'], data_separate)
-    model = eval('models.{}().to(cfg["device"])'.format(cfg['model_name']))
-    model.load_state_dict(teacher_result['init_model_state_dict'])
-    optimizer = make_optimizer(model, cfg['model_name'])
-    scheduler = make_scheduler(optimizer, cfg['model_name'])
-    metric = Metric({'train': ['Loss', 'Accuracy'], 'test': ['Loss', 'Accuracy']})
+                                                                             student_dataset['train'])
+    teacher_data_loader = make_data_loader(teacher_dataset, cfg['model_name'])
+    student_data_loader = make_data_loader(student_dataset, cfg['model_name'])
+    teacher_model = eval('models.{}().to(cfg["device"])'.format(cfg['model_name']))
+    student_model = eval('models.{}().to(cfg["device"])'.format(cfg['student_model_name']))
+    teacher_optimizer = make_optimizer(teacher_model, cfg['model_name'])
+    teacher_scheduler = make_scheduler(teacher_optimizer, cfg['model_name'])
+    student_optimizer = make_optimizer(student_model, cfg['student_model_name'])
+    student_scheduler = make_scheduler(student_optimizer, cfg['student_model_name'])
     if cfg['resume_mode'] == 1:
         result = resume(cfg['model_tag'])
         last_epoch = result['epoch']
-        logger = result['logger']
+        teacher_logger = result['teacher_logger']
+        student_logger = result['student_logger']
         if last_epoch > 1:
-            model.load_state_dict(result['model_state_dict'])
-            optimizer.load_state_dict(result['optimizer_state_dict'])
-            scheduler.load_state_dict(result['scheduler_state_dict'])
+            teacher_model.load_state_dict(result['model_state_dict'])
+            teacher_optimizer.load_state_dict(result['optimizer_state_dict'])
+            teacher_scheduler.load_state_dict(result['scheduler_state_dict'])
+            student_model.load_state_dict(result['student_model_state_dict'])
+            student_optimizer.load_state_dict(result['student_optimizer_state_dict'])
+            student_scheduler.load_state_dict(result['student_scheduler_state_dict'])
     else:
         last_epoch = 1
         current_time = datetime.datetime.now().strftime('%b%d_%H-%M-%S')
-        logger_path = 'output/runs/train_{}_{}'.format(cfg['model_tag'], current_time)
-        logger = Logger(logger_path)
+        teacher_logger_path = 'output/runs/teacher_train_{}_{}'.format(cfg['model_tag'], current_time)
+        teacher_logger = Logger(teacher_logger_path)
+        student_logger_path = 'output/runs/student_train_{}_{}'.format(cfg['model_tag'], current_time)
+        student_logger = Logger(student_logger_path)
+    metric = Metric({'train': ['Loss', 'Accuracy'], 'test': ['Loss', 'Accuracy']})
     if cfg['world_size'] > 1:
-        model = torch.nn.DataParallel(model, device_ids=list(range(cfg['world_size'])))
-    test_model = make_stats_batchnorm_ts(teacher_dataset['train'], student_dataset['train'], teacher_model,
-                                         cfg['model_name'])
-    student_dataset['train'] = make_student_dataset(student_dataset['train'], test_model)
-    teacher_dataset['train'] = make_teacher_dataset(teacher_dataset['train'])
+        teacher_model = torch.nn.DataParallel(teacher_model, device_ids=list(range(cfg['world_size'])))
+        student_model = torch.nn.DataParallel(student_model, device_ids=list(range(cfg['world_size'])))
+    teacher = Teacher(teacher_model, student_model)
+    student = Student(teacher_model, student_model)
     for epoch in range(last_epoch, cfg[cfg['model_name']]['num_epochs'] + 1):
-        logger.safe(True)
-        train(teacher_dataset['train'], student_dataset['train'], model, optimizer, metric, logger, epoch)
-        test_model = make_stats_batchnorm_ts(teacher_dataset['train'], student_dataset['train'], model,
-                                             cfg['model_name'])
-        test(teacher_dataset['test'], test_model, metric, logger, epoch)
-        scheduler.step()
-        logger.safe(False)
-        model_state_dict = test_model.module.state_dict() if cfg['world_size'] > 1 else test_model.state_dict()
-        result = {'cfg': cfg, 'epoch': epoch + 1, 'init_model_state_dict': init_model_state_dict,
-                  'model_state_dict': model_state_dict, 'optimizer_state_dict': optimizer.state_dict(),
-                  'scheduler_state_dict': scheduler.state_dict(), 'logger': logger}
+        teacher_logger.safe(True)
+        student_logger.safe(True)
+        train(teacher_data_loader['train'], teacher, teacher_optimizer, metric, teacher_logger, epoch)
+        test_teacher_model = make_stats_batchnorm(teacher_dataset['train'], teacher_model, cfg['model_name'])
+        test(teacher_data_loader['test'], test_teacher_model, metric, teacher_logger, epoch)
+        train(student_data_loader['train'], student, student_optimizer, metric, student_logger, epoch)
+        test_student_model = make_stats_batchnorm(student_dataset['train'], student_model, cfg['model_name'])
+        test(teacher_data_loader['test'], test_student_model, metric, teacher_logger, epoch)
+        teacher_scheduler.step()
+        student_scheduler.step()
+        teacher_logger.safe(False)
+        student_logger.safe(False)
+        teacher_model_state_dict = test_teacher_model.module.state_dict() if cfg['world_size'] > 1 else \
+            test_teacher_model.state_dict()
+        student_model_state_dict = test_student_model.module.state_dict() if cfg['world_size'] > 1 else \
+            test_student_model.state_dict()
+        result = {'cfg': cfg, 'epoch': epoch + 1,
+                  'teacher_model_state_dict': teacher_model_state_dict,
+                  'student_model_state_dict': student_model_state_dict,
+                  'teacher_optimizer_state_dict': teacher_optimizer.state_dict(),
+                  'student_optimizer_state_dict': student_optimizer.state_dict(),
+                  'teacher_scheduler_state_dict': teacher_scheduler.state_dict(),
+                  'student_scheduler_state_dict': student_scheduler.state_dict(),
+                  'teacher_logger': teacher_logger, 'student_logger': student_logger}
         save(result, './output/model/{}_checkpoint.pt'.format(cfg['model_tag']))
-        if metric.compare(logger.mean['test/{}'.format(metric.pivot_name)]):
-            metric.update(logger.mean['test/{}'.format(metric.pivot_name)])
+        if metric.compare(teacher_logger.mean['test/{}'.format(metric.pivot_name)]):
+            metric.update(teacher_logger.mean['test/{}'.format(metric.pivot_name)])
             shutil.copy('./output/model/{}_checkpoint.pt'.format(cfg['model_tag']),
                         './output/model/{}_best.pt'.format(cfg['model_tag']))
-        logger.reset()
-    logger.safe(False)
+        teacher_logger.reset()
+        student_logger.reset()
+    teacher_logger.safe(False)
+    student_logger.safe(False)
     return
 
 
-def train(teacher_dataset, student_dataset, model, optimizer, metric, logger, epoch):
-    dataset = ConcatDataset([teacher_dataset, student_dataset])
-    data_loader = make_data_loader({'train': dataset}, cfg['model_name'])['train']
-    model.train(True)
+def train(data_loader, model, optimizer, metric, logger, epoch):
     start_time = time.time()
     for i, input in enumerate(data_loader):
         input = collate(input)
@@ -136,8 +148,7 @@ def train(teacher_dataset, student_dataset, model, optimizer, metric, logger, ep
     return
 
 
-def test(teacher_dataset, model, metric, logger, epoch):
-    data_loader = make_data_loader({'test': teacher_dataset}, cfg['model_name'])['test']
+def test(data_loader, model, metric, logger, epoch):
     with torch.no_grad():
         model.train(False)
         for i, input in enumerate(data_loader):
