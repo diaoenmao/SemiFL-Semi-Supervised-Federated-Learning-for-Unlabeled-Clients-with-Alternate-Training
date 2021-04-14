@@ -5,8 +5,8 @@ control:
   active_rate: '1'
   data_split_mode: 'none'
   supervise_rate: '0.08'
-  student_data_name: 'none'
-  student_model_name: 'none'
+  student_data_name: 'CIFAR10'
+  student_model_name: 'conv'
 # data
 data_name: CIFAR10
 # MNIST

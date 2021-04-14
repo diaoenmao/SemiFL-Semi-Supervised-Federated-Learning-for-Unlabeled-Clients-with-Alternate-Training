@@ -49,9 +49,9 @@ def runExperiment():
     last_epoch = result['epoch']
     data_separate = None
     if last_epoch > 1:
-        model.load_state_dict(result['model_state_dict'])
         data_separate = result['data_separate']
-    dataset['train'], _ = separate_dataset(dataset['train'], data_separate)
+        model.load_state_dict(result['model_state_dict'])
+    dataset['train'], data_separate = separate_dataset(dataset['train'], data_separate)
     data_loader = make_data_loader(dataset, cfg['model_name'])
     current_time = datetime.datetime.now().strftime('%b%d_%H-%M-%S')
     logger_path = 'output/runs/test_{}_{}'.format(cfg['model_tag'], current_time)

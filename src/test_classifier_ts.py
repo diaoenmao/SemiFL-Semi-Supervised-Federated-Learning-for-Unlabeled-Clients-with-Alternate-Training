@@ -5,7 +5,7 @@ import torch
 import torch.backends.cudnn as cudnn
 import models
 from config import cfg
-from data import fetch_dataset, make_data_loader, separate_dataset_ts, make_stats_batchnorm_ts
+from data import fetch_dataset, make_data_loader, separate_dataset_ts, make_batchnorm_dataset_ts, make_stats_batchnorm
 from metrics import Metric
 from utils import save, to_device, process_control, process_dataset, resume, collate
 from logger import Logger
@@ -30,9 +30,6 @@ def main():
     process_control()
     seeds = list(range(cfg['init_seed'], cfg['init_seed'] + cfg['num_experiments']))
     for i in range(cfg['num_experiments']):
-        teacher_control_name = '1_1_none_{}_{}_none_none'.format(cfg['augment'], cfg['supervise_rate'])
-        teacher_model_tag_list = [str(seeds[i]), cfg['data_name'], cfg['model_name'], teacher_control_name]
-        cfg['teacher_model_tag'] = '_'.join([x for x in teacher_model_tag_list if x])
         model_tag_list = [str(seeds[i]), cfg['data_name'], cfg['model_name'], cfg['control_name']]
         cfg['model_tag'] = '_'.join([x for x in model_tag_list if x])
         print('Experiment: {}'.format(cfg['model_tag']))
@@ -48,33 +45,45 @@ def runExperiment():
     student_dataset = fetch_dataset(cfg['student_data_name'])
     process_dataset(teacher_dataset)
     teacher_model = eval('models.{}().to(cfg["device"])'.format(cfg['model_name']))
-    teacher_result = resume(cfg['teacher_model_tag'], load_tag='best')
-    teacher_model.load_state_dict(teacher_result['model_state_dict'])
-    data_separate = teacher_result['data_separate']
-    teacher_dataset['train'], student_dataset['train'] = separate_dataset_ts(teacher_dataset['train'],
-                                                                             student_dataset['train'], data_separate)
-    model = eval('models.{}().to(cfg["device"])'.format(cfg['model_name']))
-    metric = Metric({'test': ['Loss', 'Accuracy']})
+    student_model = eval('models.{}().to(cfg["device"])'.format(cfg['model_name']))
+    teacher_metric = Metric({'train': ['Loss', 'Accuracy'], 'test': ['Loss', 'Accuracy']})
+    student_metric = Metric({'train': ['Loss'], 'test': ['Loss', 'Accuracy']})
     result = resume(cfg['model_tag'], load_tag='best')
     last_epoch = result['epoch']
-    model.load_state_dict(result['model_state_dict'])
+    data_separate = None
+    if last_epoch > 1:
+        data_separate = result['data_separate']
+        teacher_model.load_state_dict(result['teacher_model_state_dict'])
+        student_model.load_state_dict(result['student_model_state_dict'])
+    teacher_dataset['train'], student_dataset['train'], data_separate = separate_dataset_ts(teacher_dataset['train'],
+                                                                                            student_dataset['train'],
+                                                                                            data_separate)
+    batchnorm_dataset = make_batchnorm_dataset_ts(teacher_dataset['train'], student_dataset['train'])
+    teacher_data_loader = make_data_loader(teacher_dataset, cfg['model_name'])
     current_time = datetime.datetime.now().strftime('%b%d_%H-%M-%S')
-    logger_path = 'output/runs/test_{}_{}'.format(cfg['model_tag'], current_time)
-    test_logger = Logger(logger_path)
-    test_logger.safe(True)
-    test_model = make_stats_batchnorm_ts(teacher_dataset['train'], student_dataset['train'], teacher_model,
-                                         cfg['model_name'])
-    test(teacher_dataset['test'], test_model, metric, test_logger, last_epoch)
-    test_logger.safe(False)
+    test_teacher_logger_path = 'output/runs/teacher_train_{}_{}'.format(cfg['model_tag'], current_time)
+    test_teacher_logger = Logger(test_teacher_logger_path)
+    test_student_logger_path = 'output/runs/student_train_{}_{}'.format(cfg['model_tag'], current_time)
+    test_student_logger = Logger(test_student_logger_path)
+    test_teacher_logger.safe(True)
+    test_student_logger.safe(True)
+    test_teacher_model = make_stats_batchnorm(batchnorm_dataset, teacher_model, cfg['model_name'])
+    test(teacher_data_loader['test'], test_teacher_model, teacher_metric, test_teacher_logger, last_epoch, 'T')
+    test_student_model = make_stats_batchnorm(batchnorm_dataset, student_model, cfg['model_name'])
+    test(teacher_data_loader['test'], test_student_model, student_metric, test_student_logger, last_epoch, 'S')
+    test_teacher_logger.safe(False)
+    test_student_logger.safe(False)
     result = resume(cfg['model_tag'], load_tag='checkpoint')
-    train_logger = result['logger']
-    result = {'cfg': cfg, 'epoch': last_epoch, 'logger': {'train': train_logger, 'test': test_logger}}
+    train_teacher_logger = result['teacher_logger']
+    train_student_logger = result['student_logger']
+    result = {'cfg': cfg, 'epoch': last_epoch,
+              'teacher_logger': {'train': train_teacher_logger, 'test': test_teacher_logger},
+              'student_logger': {'train': train_student_logger, 'test': test_student_logger}}
     save(result, './output/result/{}.pt'.format(cfg['model_tag']))
     return
 
 
-def test(teacher_dataset, model, metric, logger, epoch):
-    data_loader = make_data_loader({'test': teacher_dataset}, cfg['model_name'])['test']
+def test(data_loader, model, metric, logger, epoch, tag):
     with torch.no_grad():
         model.train(False)
         for i, input in enumerate(data_loader):
@@ -85,7 +94,7 @@ def test(teacher_dataset, model, metric, logger, epoch):
             output['loss'] = output['loss'].mean() if cfg['world_size'] > 1 else output['loss']
             evaluation = metric.evaluate(metric.metric_name['test'], input, output)
             logger.append(evaluation, 'test', input_size)
-        info = {'info': ['Model: {}'.format(cfg['model_tag']), 'Test Epoch: {}({:.0f}%)'.format(epoch, 100.)]}
+        info = {'info': ['Model({}): {}'.format(tag, cfg['model_tag']), 'Test Epoch: {}({:.0f}%)'.format(epoch, 100.)]}
         logger.append(info, 'test', mean=False)
         print(logger.write('test', metric.metric_name['test']))
     return

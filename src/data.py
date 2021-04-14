@@ -2,12 +2,14 @@ import copy
 import torch
 import numpy as np
 import models
-import torch.nn.functional as F
 from config import cfg
 from torchvision import transforms
-from torch.utils.data import DataLoader, Subset, ConcatDataset
+from torch.utils.data import DataLoader, Subset
 from torch.utils.data.dataloader import default_collate
 from utils import collate, to_device
+
+data_stats = {'MNIST': ((0.1307,), (0.3081,)), 'CIFAR10': ((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+              'CIFAR100': ((0.5071, 0.4865, 0.4409), (0.2673, 0.2564, 0.2762))}
 
 
 def fetch_dataset(data_name):
@@ -22,10 +24,10 @@ def fetch_dataset(data_name):
                                'transform=datasets.Compose([transforms.ToTensor()]))'.format(data_name))
         dataset['train'].transform = datasets.Compose([
             transforms.ToTensor(),
-            transforms.Normalize((0.1307,), (0.3081,))])
+            transforms.Normalize(*data_stats[data_name])])
         dataset['test'].transform = datasets.Compose([
             transforms.ToTensor(),
-            transforms.Normalize((0.1307,), (0.3081,))])
+            transforms.Normalize(*data_stats[data_name])])
     elif data_name in ['CIFAR10', 'CIFAR100']:
         dataset['train'] = eval('datasets.{}(root=root, split=\'train\', '
                                 'transform=datasets.Compose([transforms.ToTensor()]))'.format(data_name))
@@ -35,10 +37,10 @@ def fetch_dataset(data_name):
             transforms.RandomCrop(32, padding=4),
             transforms.RandomHorizontalFlip(),
             transforms.ToTensor(),
-            transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))])
+            transforms.Normalize(*data_stats[data_name])])
         dataset['test'].transform = datasets.Compose([
             transforms.ToTensor(),
-            transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))])
+            transforms.Normalize(*data_stats[data_name])])
     else:
         raise ValueError('Not valid dataset name')
     print('data ready')
@@ -148,20 +150,24 @@ def separate_dataset(dataset, data_separate=None):
 
 
 def separate_dataset_ts(teacher_dataset, student_dataset, data_separate=None):
+    idx = list(range(len(teacher_dataset)))
     teacher_dataset, data_separate = separate_dataset(teacher_dataset, data_separate)
     if cfg['data_name'] == cfg['student_data_name']:
-        idx = list(range(len(teacher_dataset)))
         data_unseparate = torch.tensor(list(set(idx) - set(data_separate.tolist())))
         data_unseparate, _ = torch.sort(data_unseparate)
-        student_dataset = separate_dataset(student_dataset, data_unseparate)
-        if cfg['data_name'] in ['MNIST']:
-            transform = TransformUDA((0.1307,), (0.3081,))
-        elif cfg['data_name'] in ['CIFAR10', 'CIFAR100']:
-            transform = TransformUDA((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
-        else:
-            raise ValueError('Not valid dataset name')
-        student_dataset.transform = transform
-    return teacher_dataset, student_dataset
+        student_dataset, _ = separate_dataset(student_dataset, data_unseparate)
+    transform = TransformUDA(*data_stats[cfg['student_data_name']])
+    student_dataset.transform = transform
+    return teacher_dataset, student_dataset, data_separate
+
+
+def make_batchnorm_dataset_ts(teacher_dataset, student_dataset):
+    batchnorm_dataset = copy.deepcopy(teacher_dataset)
+    if cfg['data_name'] == cfg['student_data_name']:
+        batchnorm_dataset.id = batchnorm_dataset.id + student_dataset.id
+        batchnorm_dataset.data = batchnorm_dataset.data + student_dataset.data
+        batchnorm_dataset.target = batchnorm_dataset.target + student_dataset.target
+    return batchnorm_dataset
 
 
 def make_stats_batchnorm(dataset, model, tag):
@@ -170,15 +176,7 @@ def make_stats_batchnorm(dataset, model, tag):
         test_model = copy.deepcopy(model)
         test_model.apply(lambda m: models.make_batchnorm(m, momentum=None, track_running_stats=True))
         _transform = dataset.transform
-        if cfg['data_name'] in ['MNIST']:
-            transform = datasets.Compose([transforms.ToTensor(),
-                                          transforms.Normalize((0.1307,), (0.3081,))])
-        elif cfg['data_name'] in ['CIFAR10', 'CIFAR100']:
-            transform = datasets.Compose([transforms.ToTensor(),
-                                          transforms.Normalize((0.4914, 0.4822, 0.4465),
-                                                               (0.2023, 0.1994, 0.2010))])
-        else:
-            raise ValueError('Not valid dataset name')
+        transform = datasets.Compose([transforms.ToTensor(), transforms.Normalize(*data_stats[cfg['data_name']])])
         dataset.transform = transform
         data_loader = make_data_loader({'train': dataset}, tag, shuffle={'train': False})['train']
         test_model.train(True)
@@ -208,6 +206,7 @@ class TransformUDA(object):
         ])
 
     def __call__(self, input):
-        input['data'] = self.weak(input['data'])
-        input['uda'] = self.strong(input['data'])
+        data = self.weak(input['data'])
+        uda = self.strong(input['data'])
+        input = {'data': data, 'uda': uda}
         return input

@@ -43,29 +43,42 @@ def main():
     world_size = [[world_size]]
     num_experiments = [[experiment_step]]
     resume_mode = [[resume_mode]]
-    if file == 'teacher':
+    if file == 'all':
         filename = '{}_{}_{}'.format(run, file, model)
-        script_name = [['{}_classifier_teacher.py'.format(run)]]
+        script_name = [['{}_classifier.py'.format(run)]]
         model_names = [[model]]
         data_names = [['CIFAR10']]
-        control_name = [[['1'], ['1'], ['none'], ['none', 'ra'], ['0.05'], ['none'], ['none']]]
+        control_name = [[['1'], ['1'], ['none'], ['1'], ['none'], ['none']]]
         cifar10_controls = make_controls(script_name, data_names, model_names, init_seeds, world_size, num_experiments,
                                          resume_mode, control_name)
         data_names = [['CIFAR100']]
-        control_name = [[['1'], ['1'], ['none'], ['none', 'ra'], ['0.05'], ['none'], ['none']]]
+        control_name = [[['1'], ['1'], ['none'], ['1'], ['none'], ['none']]]
         cifar100_controls = make_controls(script_name, data_names, model_names, init_seeds, world_size, num_experiments,
                                           resume_mode, control_name)
         controls = cifar10_controls + cifar100_controls
-    elif file == 'student':
+    elif file == 't':
         filename = '{}_{}_{}'.format(run, file, model)
-        script_name = [['{}_classifier_student.py'.format(run)]]
+        script_name = [['{}_classifier.py'.format(run)]]
         model_names = [[model]]
         data_names = [['CIFAR10']]
-        control_name = [[['1'], ['1'], ['none'], ['none', 'ra'], ['0.05'], ['CIFAR10'], ['none']]]
+        control_name = [[['1'], ['1'], ['none'], ['0.0008', '0.005', '0.08'], ['none'], ['none']]]
         cifar10_controls = make_controls(script_name, data_names, model_names, init_seeds, world_size, num_experiments,
                                          resume_mode, control_name)
         data_names = [['CIFAR100']]
-        control_name = [[['1'], ['1'], ['none'], ['none', 'ra'], ['0.05'], ['CIFAR100'], ['none']]]
+        control_name = [[['1'], ['1'], ['none'], ['0.0008', '0.005', '0.08'], ['none'], ['none']]]
+        cifar100_controls = make_controls(script_name, data_names, model_names, init_seeds, world_size, num_experiments,
+                                          resume_mode, control_name)
+        controls = cifar10_controls + cifar100_controls
+    elif file == 'ts':
+        filename = '{}_{}_{}'.format(run, file, model)
+        script_name = [['{}_classifier_ts.py'.format(run)]]
+        model_names = [[model]]
+        data_names = [['CIFAR10']]
+        control_name = [[['1'], ['1'], ['none'], ['0.0008', '0.005', '0.08'], ['CIFAR10'], [model]]]
+        cifar10_controls = make_controls(script_name, data_names, model_names, init_seeds, world_size, num_experiments,
+                                         resume_mode, control_name)
+        data_names = [['CIFAR100']]
+        control_name = [[['1'], ['1'], ['none'], ['0.0008', '0.005', '0.08'], ['CIFAR100'], [model]]]
         cifar100_controls = make_controls(script_name, data_names, model_names, init_seeds, world_size, num_experiments,
                                           resume_mode, control_name)
         controls = cifar10_controls + cifar100_controls
@@ -74,11 +87,11 @@ def main():
         script_name = [['{}_classifier_fed.py'.format(run)]]
         model_names = [[model]]
         data_names = [['CIFAR10']]
-        control_name = [[['1'], ['1'], ['iid'], ['none', 'ra'], ['0.05'], ['CIFAR10'], ['join']]]
+        control_name = [[['100'], ['0.1'], ['iid'], ['0.0008', '0.005', '0.08'], ['CIFAR10'], [model]]]
         cifar10_controls = make_controls(script_name, data_names, model_names, init_seeds, world_size, num_experiments,
                                          resume_mode, control_name)
         data_names = [['CIFAR100']]
-        control_name = [[['1'], ['1'], ['iid'], ['none', 'ra'], ['0.05'], ['CIFAR100'], ['join']]]
+        control_name = [[['100'], ['0.1'], ['iid'], ['0.0008', '0.005', '0.08'], ['CIFAR100'], [model]]]
         cifar100_controls = make_controls(script_name, data_names, model_names, init_seeds, world_size, num_experiments,
                                           resume_mode, control_name)
         controls = cifar10_controls + cifar100_controls

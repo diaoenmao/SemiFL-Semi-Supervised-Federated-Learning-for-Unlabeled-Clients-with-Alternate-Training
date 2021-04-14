@@ -75,9 +75,9 @@ def runExperiment():
         scheduler.step()
         logger.safe(False)
         model_state_dict = test_model.module.state_dict() if cfg['world_size'] > 1 else test_model.state_dict()
-        result = {'cfg': cfg, 'epoch': epoch + 1, 'model_state_dict': model_state_dict,
-                  'optimizer_state_dict': optimizer.state_dict(), 'scheduler_state_dict': scheduler.state_dict(),
-                  'logger': logger}
+        result = {'cfg': cfg, 'epoch': epoch + 1, 'data_separate': data_separate,
+                  'model_state_dict': model_state_dict, 'optimizer_state_dict': optimizer.state_dict(),
+                  'scheduler_state_dict': scheduler.state_dict(), 'logger': logger}
         save(result, './output/model/{}_checkpoint.pt'.format(cfg['model_tag']))
         if metric.compare(logger.mean['test/{}'.format(metric.pivot_name)]):
             metric.update(logger.mean['test/{}'.format(metric.pivot_name)])
