@@ -138,7 +138,7 @@ def non_iid(dataset, num_users, target_split=None):
 def separate_dataset(dataset, data_separate=None):
     if data_separate is None:
         idx = list(range(len(dataset)))
-        num_items = int(len(dataset) * cfg['supervise_rate'])
+        num_items = cfg['num_supervised'] if cfg['num_supervised'] != -1 else len(dataset)
         randperm = torch.randperm(len(idx))
         data_separate = torch.tensor(idx)[randperm[:num_items]]
         data_separate, _ = torch.sort(data_separate)

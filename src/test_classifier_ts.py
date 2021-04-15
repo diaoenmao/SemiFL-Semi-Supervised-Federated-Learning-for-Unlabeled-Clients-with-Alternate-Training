@@ -1,5 +1,4 @@
 import argparse
-import datetime
 import os
 import torch
 import torch.backends.cudnn as cudnn
@@ -8,7 +7,7 @@ from config import cfg
 from data import fetch_dataset, make_data_loader, separate_dataset_ts, make_batchnorm_dataset_ts, make_stats_batchnorm
 from metrics import Metric
 from utils import save, to_device, process_control, process_dataset, resume, collate
-from logger import Logger
+from logger import make_logger
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 cudnn.benchmark = True
@@ -60,11 +59,8 @@ def runExperiment():
                                                                                             data_separate)
     batchnorm_dataset = make_batchnorm_dataset_ts(teacher_dataset['train'], student_dataset['train'])
     teacher_data_loader = make_data_loader(teacher_dataset, cfg['model_name'])
-    current_time = datetime.datetime.now().strftime('%b%d_%H-%M-%S')
-    test_teacher_logger_path = 'output/runs/teacher_train_{}_{}'.format(cfg['model_tag'], current_time)
-    test_teacher_logger = Logger(test_teacher_logger_path)
-    test_student_logger_path = 'output/runs/student_train_{}_{}'.format(cfg['model_tag'], current_time)
-    test_student_logger = Logger(test_student_logger_path)
+    test_teacher_logger = make_logger('output/runs/teacher_test_{}'.format(cfg['model_tag']))
+    test_student_logger = make_logger('output/runs/student_test_{}'.format(cfg['model_tag']))
     test_teacher_logger.safe(True)
     test_student_logger.safe(True)
     test_teacher_model = make_stats_batchnorm(batchnorm_dataset, teacher_model, cfg['model_name'])
@@ -74,8 +70,8 @@ def runExperiment():
     test_teacher_logger.safe(False)
     test_student_logger.safe(False)
     result = resume(cfg['model_tag'], load_tag='checkpoint')
-    train_teacher_logger = result['teacher_logger']
-    train_student_logger = result['student_logger']
+    train_teacher_logger = result['teacher_logger'] if 'teacher_logger' in result else None
+    train_student_logger = result['student_logger'] if 'student_logger' in result else None
     result = {'cfg': cfg, 'epoch': last_epoch,
               'teacher_logger': {'train': train_teacher_logger, 'test': test_teacher_logger},
               'student_logger': {'train': train_student_logger, 'test': test_student_logger}}

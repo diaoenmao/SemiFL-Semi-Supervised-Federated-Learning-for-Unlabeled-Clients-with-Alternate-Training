@@ -108,14 +108,20 @@ def process_control():
     cfg['num_users'] = int(cfg['control']['num_users'])
     cfg['active_rate'] = float(cfg['control']['active_rate'])
     cfg['data_split_mode'] = cfg['control']['data_split_mode']
-    cfg['supervise_rate'] = float(cfg['control']['supervise_rate'])
+    cfg['num_supervised'] = int(cfg['control']['num_supervised'])
     cfg['student_data_name'] = cfg['control']['student_data_name']
     cfg['student_model_name'] = cfg['control']['student_model_name']
+    if cfg['control']['student_threshold'] != 'none':
+        cfg['student_threshold'] = float(cfg['control']['student_threshold'])
+    else:
+        cfg['student_threshold'] = cfg['control']['student_threshold']
     data_shape = {'MNIST': [1, 28, 28], 'CIFAR10': [3, 32, 32], 'CIFAR100': [3, 32, 32]}
     cfg['data_shape'] = data_shape[cfg['data_name']]
     cfg['conv'] = {'hidden_size': [64, 128, 256, 512]}
     cfg['resnet18'] = {'hidden_size': [64, 128, 256, 512]}
     cfg['wresnet28x2'] = {'depth': 28, 'widen_factor': 2, 'drop_rate': 0.0}
+    cfg['wresnet28x8'] = {'depth': 28, 'widen_factor': 8, 'drop_rate': 0.0}
+    cfg['wresnet37x2'] = {'depth': 37, 'widen_factor': 2, 'drop_rate': 0.0}
     if cfg['data_split_mode'] in ['iid']:
         model_name = cfg['model_name']
         cfg[model_name]['shuffle'] = {'train': True, 'test': False}
@@ -161,7 +167,6 @@ def process_control():
             cfg[model_name]['milestones'] = [100, 200]
             cfg[model_name]['num_epochs'] = 300
             cfg[model_name]['batch_size'] = {'train': 250, 'test': 500}
-            cfg['student_iter'] = 10
         else:
             cfg[model_name]['shuffle'] = {'train': True, 'test': False}
             cfg[model_name]['optimizer_name'] = 'SGD'

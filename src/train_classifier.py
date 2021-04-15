@@ -11,7 +11,7 @@ from config import cfg
 from data import fetch_dataset, make_data_loader, separate_dataset, make_stats_batchnorm
 from metrics import Metric
 from utils import save, to_device, process_control, process_dataset, make_optimizer, make_scheduler, resume, collate
-from logger import Logger
+from logger import make_logger
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 cudnn.benchmark = True
@@ -55,16 +55,16 @@ def runExperiment():
     if cfg['resume_mode'] == 1:
         result = resume(cfg['model_tag'])
         last_epoch = result['epoch']
-        logger = result['logger']
         if last_epoch > 1:
             model.load_state_dict(result['model_state_dict'])
             optimizer.load_state_dict(result['optimizer_state_dict'])
             scheduler.load_state_dict(result['scheduler_state_dict'])
+            logger = result['logger']
+        else:
+            logger = make_logger('output/runs/train_{}'.format(cfg['model_tag']))
     else:
         last_epoch = 1
-        current_time = datetime.datetime.now().strftime('%b%d_%H-%M-%S')
-        logger_path = 'output/runs/train_{}_{}'.format(cfg['model_tag'], current_time)
-        logger = Logger(logger_path)
+        logger = make_logger('output/runs/train_{}'.format(cfg['model_tag']))
     if cfg['world_size'] > 1:
         model = torch.nn.DataParallel(model, device_ids=list(range(cfg['world_size'])))
     for epoch in range(last_epoch, cfg[cfg['model_name']]['num_epochs'] + 1):

@@ -11,7 +11,7 @@ from data import fetch_dataset, make_data_loader, separate_dataset_ts, make_batc
 from metrics import Metric
 from modules import Teacher, Student
 from utils import save, to_device, process_control, process_dataset, make_optimizer, make_scheduler, resume, collate
-from logger import Logger
+from logger import make_logger
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 cudnn.benchmark = True
@@ -61,8 +61,6 @@ def runExperiment():
     if cfg['resume_mode'] == 1:
         result = resume(cfg['model_tag'])
         last_epoch = result['epoch']
-        teacher_logger = result['teacher_logger']
-        student_logger = result['student_logger']
         if last_epoch > 1:
             teacher_model.load_state_dict(result['teacher_model_state_dict'])
             teacher_optimizer.load_state_dict(result['optimizer_state_dict'])
@@ -70,29 +68,32 @@ def runExperiment():
             student_model.load_state_dict(result['student_model_state_dict'])
             student_optimizer.load_state_dict(result['student_optimizer_state_dict'])
             student_scheduler.load_state_dict(result['student_scheduler_state_dict'])
+            teacher_logger = result['teacher_logger']
+            student_logger = result['student_logger']
+        else:
+            teacher_logger = make_logger('output/runs/teacher_train_{}'.format(cfg['model_tag']))
+            student_logger = make_logger('output/runs/student_train_{}'.format(cfg['model_tag']))
     else:
         last_epoch = 1
-        current_time = datetime.datetime.now().strftime('%b%d_%H-%M-%S')
-        teacher_logger_path = 'output/runs/teacher_train_{}_{}'.format(cfg['model_tag'], current_time)
-        teacher_logger = Logger(teacher_logger_path)
-        student_logger_path = 'output/runs/student_train_{}_{}'.format(cfg['model_tag'], current_time)
-        student_logger = Logger(student_logger_path)
+        teacher_logger = make_logger('output/runs/teacher_train_{}'.format(cfg['model_tag']))
+        student_logger = make_logger('output/runs/student_train_{}'.format(cfg['model_tag']))
     teacher_metric = Metric({'train': ['Loss', 'Accuracy'], 'test': ['Loss', 'Accuracy']})
     student_metric = Metric({'train': ['Loss'], 'test': ['Loss', 'Accuracy']})
     if cfg['world_size'] > 1:
         teacher_model = torch.nn.DataParallel(teacher_model, device_ids=list(range(cfg['world_size'])))
         student_model = torch.nn.DataParallel(student_model, device_ids=list(range(cfg['world_size'])))
-    teacher = Teacher(teacher_model, student_model)
-    student = Student(teacher_model, student_model)
+    teacher = Teacher(teacher_model, student_model, cfg['student_threshold'])
+    student = Student(teacher_model, student_model, cfg['student_threshold'])
     for epoch in range(last_epoch, cfg[cfg['model_name']]['num_epochs'] + 1):
         teacher_logger.safe(True)
         student_logger.safe(True)
         train(teacher_data_loader['train'], teacher, teacher_optimizer, teacher_metric, teacher_logger, epoch, 'T')
         test_teacher_model = make_stats_batchnorm(batchnorm_dataset, teacher_model, cfg['model_name'])
         test(teacher_data_loader['test'], test_teacher_model, teacher_metric, teacher_logger, epoch, 'T')
+        student.sync()
         train(student_data_loader['train'], student, student_optimizer, student_metric, student_logger, epoch, 'S')
         test_student_model = make_stats_batchnorm(batchnorm_dataset, student_model, cfg['model_name'])
-        test(teacher_data_loader['test'], test_student_model, student_metric, teacher_logger, epoch, 'S')
+        test(teacher_data_loader['test'], test_student_model, student_metric, student_logger, epoch, 'S')
         teacher_scheduler.step()
         student_scheduler.step()
         teacher_logger.safe(False)
@@ -130,24 +131,28 @@ def train(data_loader, model, optimizer, metric, logger, epoch, tag):
         input = to_device(input, cfg['device'])
         optimizer.zero_grad()
         output = model(input)
-        output['loss'] = output['loss'].mean() if cfg['world_size'] > 1 else output['loss']
-        output['loss'].backward()
-        torch.nn.utils.clip_grad_norm_(model.parameters(), 1)
-        optimizer.step()
-        evaluation = metric.evaluate(metric.metric_name['train'], input, output)
-        logger.append(evaluation, 'train', n=input_size)
-        if i % int((len(data_loader) * cfg['log_interval']) + 1) == 0:
-            batch_time = (time.time() - start_time) / (i + 1)
-            lr = optimizer.param_groups[0]['lr']
-            epoch_finished_time = datetime.timedelta(seconds=round(batch_time * (len(data_loader) - i - 1)))
-            exp_finished_time = epoch_finished_time + datetime.timedelta(
-                seconds=round((cfg[cfg['model_name']]['num_epochs'] - epoch) * batch_time * len(data_loader)))
-            info = {'info': ['Model({}): {}'.format(tag, cfg['model_tag']),
-                             'Train Epoch: {}({:.0f}%)'.format(epoch, 100. * i / len(data_loader)),
-                             'Learning rate: {:.6f}'.format(lr), 'Epoch Finished Time: {}'.format(epoch_finished_time),
-                             'Experiment Finished Time: {}'.format(exp_finished_time)]}
-            logger.append(info, 'train', mean=False)
-            print(logger.write('train', metric.metric_name['train']))
+        if output['loss'] is None:
+            continue
+        else:
+            output['loss'] = output['loss'].mean() if cfg['world_size'] > 1 else output['loss']
+            output['loss'].backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), 1)
+            optimizer.step()
+            evaluation = metric.evaluate(metric.metric_name['train'], input, output)
+            logger.append(evaluation, 'train', n=input_size)
+            if i % int((len(data_loader) * cfg['log_interval']) + 1) == 0:
+                batch_time = (time.time() - start_time) / (i + 1)
+                lr = optimizer.param_groups[0]['lr']
+                epoch_finished_time = datetime.timedelta(seconds=round(batch_time * (len(data_loader) - i - 1)))
+                exp_finished_time = epoch_finished_time + datetime.timedelta(
+                    seconds=round((cfg[cfg['model_name']]['num_epochs'] - epoch) * batch_time * len(data_loader)))
+                info = {'info': ['Model({}): {}'.format(tag, cfg['model_tag']),
+                                 'Train Epoch: {}({:.0f}%)'.format(epoch, 100. * i / len(data_loader)),
+                                 'Learning rate: {:.6f}'.format(lr),
+                                 'Epoch Finished Time: {}'.format(epoch_finished_time),
+                                 'Experiment Finished Time: {}'.format(exp_finished_time)]}
+                logger.append(info, 'train', mean=False)
+                print(logger.write('train', metric.metric_name['train']))
     return
 
 

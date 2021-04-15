@@ -1,5 +1,4 @@
 import argparse
-import datetime
 import os
 import torch
 import torch.backends.cudnn as cudnn
@@ -8,7 +7,7 @@ from config import cfg
 from data import fetch_dataset, make_data_loader, separate_dataset, make_stats_batchnorm
 from metrics import Metric
 from utils import save, to_device, process_control, process_dataset, resume, collate
-from logger import Logger
+from logger import make_logger
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 cudnn.benchmark = True
@@ -53,15 +52,13 @@ def runExperiment():
         model.load_state_dict(result['model_state_dict'])
     dataset['train'], data_separate = separate_dataset(dataset['train'], data_separate)
     data_loader = make_data_loader(dataset, cfg['model_name'])
-    current_time = datetime.datetime.now().strftime('%b%d_%H-%M-%S')
-    logger_path = 'output/runs/test_{}_{}'.format(cfg['model_tag'], current_time)
-    test_logger = Logger(logger_path)
+    test_logger = make_logger('output/runs/test_{}'.format(cfg['model_tag']))
     test_logger.safe(True)
     model = make_stats_batchnorm(dataset['train'], model, cfg['model_name'])
     test(data_loader['test'], model, metric, test_logger, last_epoch)
     test_logger.safe(False)
     result = resume(cfg['model_tag'], load_tag='checkpoint')
-    train_logger = result['logger']
+    train_logger = result['logger'] if 'logger' in result else None
     result = {'cfg': cfg, 'epoch': last_epoch, 'logger': {'train': train_logger, 'test': test_logger}}
     save(result, './output/result/{}.pt'.format(cfg['model_tag']))
     return
