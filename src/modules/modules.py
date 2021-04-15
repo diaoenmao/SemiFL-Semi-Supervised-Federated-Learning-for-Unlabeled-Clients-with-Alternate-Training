@@ -1,68 +1,48 @@
 import torch
 import torch.nn as nn
 from config import cfg
-from models import kld_loss
+from models import kld_loss, cross_entropy_loss
 import torch.nn.functional as F
 
 
-class Teacher(nn.Module):
-    def __init__(self, teacher_model, student_model):
+class Center(nn.Module):
+    def __init__(self, model):
         super().__init__()
-        self.teacher_model = teacher_model
-        self.student_model = student_model
-        self.teacher_model.train(True)
-        self.student_model.train(False)
-
-    def train_(self, train):
-        self.teacher_model.train(train)
-        self.student_model.train(False)
-        return
+        self.model = model
 
     def forward(self, input):
         output = {}
         true_output = input['target']
-        teacher_output = self.teacher_model({'data': input['data']})['target']
-        supervise_loss = F.cross_entropy(teacher_output, true_output)
-        with torch.no_grad():
-            student_output = self.student_model({'data': input['data']})['target']
-        teach_loss = kld_loss(teacher_output, student_output.detach())
-        output['loss'] = supervise_loss + teach_loss
-        output['target'] = teacher_output
+        center_output = self.model({'data': input['data']})['target']
+        supervise_loss = F.cross_entropy(center_output, true_output)
+        output['loss'] = supervise_loss
+        output['target'] = center_output
         return output
 
 
-class Student(nn.Module):
-    def __init__(self, teacher_model, student_model, student_threshold):
+class User(nn.Module):
+    def __init__(self, model, threshold):
         super().__init__()
-        self.teacher_model = teacher_model
-        self.student_model = student_model
-        self.teacher_model.train(False)
-        self.student_model.train(True)
-        self.student_threshold = student_threshold
+        self.model = model
+        self.threshold = threshold
 
-    def train_(self, train):
-        self.teacher_model.train(False)
-        self.student_model.train(train)
-        return
-
-    def make_indicator(self, teacher_output):
-        p = F.softmax(teacher_output, dim=-1)
-        max_p, _ = torch.max(p, dim=-1)
-        indicator = (max_p >= self.student_threshold)
-        return indicator
+    def make_label(self, output):
+        soft_pseudo_label = F.softmax(output, dim=-1)
+        max_p, hard_pseudo_label = torch.max(soft_pseudo_label, dim=-1)
+        mask = max_p.ge(self.threshold)
+        return hard_pseudo_label, mask
 
     def forward(self, input):
         output = {}
-        with torch.no_grad():
-            teacher_output = self.teacher_model({'data': input['data']})['target']
-            indicator = self.make_indicator(teacher_output)
-        if torch.all(indicator == 0):
+        user_output = self.model({'data': input['data']})['target']
+        hard_pseudo_label, mask = self.make_label(user_output)
+        if torch.all(~mask):
             output['loss'] = None
         else:
-            student_output = self.student_model({'data': input['data']})['target']
-            teach_loss = kld_loss(student_output[indicator], teacher_output[indicator].detach())
-            uda_output = self.student_model({'data': input['uda'][indicator]})['target']
-            uda_loss = kld_loss(uda_output, teacher_output[indicator].detach(), T=0.4)
-            output['loss'] = teach_loss + uda_loss
-            output['target'] = student_output
+            print(mask.float().sum())
+            user_loss = kld_loss(user_output[mask], user_output[mask].detach(), T=0.4)
+            uda_output = self.model({'data': input['uda'][mask]})['target']
+            uda_loss = kld_loss(uda_output, user_output[mask].detach())
+            output['loss'] = user_loss + uda_loss
+        output['target'] = user_output
         return output

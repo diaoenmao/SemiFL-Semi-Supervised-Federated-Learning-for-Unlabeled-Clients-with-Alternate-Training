@@ -109,12 +109,11 @@ def process_control():
     cfg['active_rate'] = float(cfg['control']['active_rate'])
     cfg['data_split_mode'] = cfg['control']['data_split_mode']
     cfg['num_supervised'] = int(cfg['control']['num_supervised'])
-    cfg['student_data_name'] = cfg['control']['student_data_name']
-    cfg['student_model_name'] = cfg['control']['student_model_name']
-    if cfg['control']['student_threshold'] != 'none':
-        cfg['student_threshold'] = float(cfg['control']['student_threshold'])
+    cfg['user_data_name'] = cfg['control']['user_data_name']
+    if cfg['control']['threshold'] != 'none':
+        cfg['threshold'] = float(cfg['control']['threshold'])
     else:
-        cfg['student_threshold'] = cfg['control']['student_threshold']
+        cfg['threshold'] = cfg['control']['threshold']
     data_shape = {'MNIST': [1, 28, 28], 'CIFAR10': [3, 32, 32], 'CIFAR100': [3, 32, 32]}
     cfg['data_shape'] = data_shape[cfg['data_name']]
     cfg['conv'] = {'hidden_size': [64, 128, 256, 512]}
@@ -155,14 +154,14 @@ def process_control():
             raise ValueError('Not valid data_split_mode')
     else:
         model_name = cfg['model_name']
-        if cfg['student_data_name'] != 'none':
+        if cfg['user_data_name'] != 'none':
             cfg[model_name]['shuffle'] = {'train': True, 'test': False}
             cfg[model_name]['optimizer_name'] = 'SGD'
             cfg[model_name]['lr'] = 1e-1
             cfg[model_name]['momentum'] = 0.9
             cfg[model_name]['weight_decay'] = 5e-4
             cfg[model_name]['nesterov'] = False
-            cfg[model_name]['scheduler_name'] = 'MultiStepLR'
+            cfg[model_name]['scheduler_name'] = 'CosineAnnealingLR'
             cfg[model_name]['factor'] = 0.1
             cfg[model_name]['milestones'] = [100, 200]
             cfg[model_name]['num_epochs'] = 300
@@ -174,7 +173,7 @@ def process_control():
             cfg[model_name]['momentum'] = 0.9
             cfg[model_name]['weight_decay'] = 5e-4
             cfg[model_name]['nesterov'] = False
-            cfg[model_name]['scheduler_name'] = 'MultiStepLR'
+            cfg[model_name]['scheduler_name'] = 'CosineAnnealingLR'
             cfg[model_name]['factor'] = 0.1
             cfg[model_name]['milestones'] = [100, 200]
             cfg[model_name]['num_epochs'] = 300
