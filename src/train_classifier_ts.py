@@ -82,7 +82,7 @@ def runExperiment():
     if cfg['world_size'] > 1:
         teacher_model = torch.nn.DataParallel(teacher_model, device_ids=list(range(cfg['world_size'])))
         student_model = torch.nn.DataParallel(student_model, device_ids=list(range(cfg['world_size'])))
-    teacher = Teacher(teacher_model, student_model, cfg['student_threshold'])
+    teacher = Teacher(teacher_model, student_model)
     student = Student(teacher_model, student_model, cfg['student_threshold'])
     for epoch in range(last_epoch, cfg[cfg['model_name']]['num_epochs'] + 1):
         teacher_logger.safe(True)
@@ -90,7 +90,6 @@ def runExperiment():
         train(teacher_data_loader['train'], teacher, teacher_optimizer, teacher_metric, teacher_logger, epoch, 'T')
         test_teacher_model = make_stats_batchnorm(batchnorm_dataset, teacher_model, cfg['model_name'])
         test(teacher_data_loader['test'], test_teacher_model, teacher_metric, teacher_logger, epoch, 'T')
-        student.sync()
         train(student_data_loader['train'], student, student_optimizer, student_metric, student_logger, epoch, 'S')
         test_student_model = make_stats_batchnorm(batchnorm_dataset, student_model, cfg['model_name'])
         test(teacher_data_loader['test'], test_student_model, student_metric, student_logger, epoch, 'S')

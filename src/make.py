@@ -66,7 +66,7 @@ def main():
         script_name = [['{}_classifier_ts.py'.format(run)]]
         data_names = [[data]]
         model_names = [[model]]
-        control_name = [[['1'], ['1'], ['none'], ['40', '250', '4000'], [data], [model], ['0.95']]]
+        control_name = [[['1'], ['1'], ['none'], ['40', '250', '4000'], [data], [model], ['0', '0.8']]]
         controls = make_controls(script_name, data_names, model_names, init_seeds, world_size, num_experiments,
                                  resume_mode, control_name)
     elif file == 'fed':
@@ -74,7 +74,7 @@ def main():
         script_name = [['{}_classifier_fed.py'.format(run)]]
         data_names = [['data']]
         model_names = [[model]]
-        control_name = [[['100'], ['0.1'], ['iid'], ['40', '250', '4000'], [data], [model], ['0.95']]]
+        control_name = [[['100'], ['0.1'], ['iid'], ['40', '250', '4000'], [data], [model], ['0', '0.8']]]
         controls = make_controls(script_name, data_names, model_names, init_seeds, world_size, num_experiments,
                                  resume_mode, control_name)
     else:

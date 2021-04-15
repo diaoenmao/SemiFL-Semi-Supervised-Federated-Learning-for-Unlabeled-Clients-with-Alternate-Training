@@ -48,7 +48,7 @@ def cross_entropy_loss(output, target, weight=None):
 
 
 def kld_loss(output, target, weight=None, T=1):
-    kld = F.kl_div(F.log_softmax(output / T, dim=-1), F.softmax(target, dim=-1), reduction='none') * (T * T)
+    kld = F.kl_div(F.log_softmax(output, dim=-1), F.softmax(target / T, dim=-1), reduction='none')
     kld = weight * kld if weight is not None else kld
     kld = torch.sum(kld)
     kld /= output.size(0)

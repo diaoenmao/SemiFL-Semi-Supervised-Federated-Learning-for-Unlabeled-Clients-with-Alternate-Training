@@ -7,7 +7,7 @@ control:
   num_supervised: '4000'
   student_data_name: 'CIFAR10'
   student_model_name: 'conv'
-  student_threshold: '0.95'
+  student_threshold: '0.8'
 # data
 data_name: CIFAR10
 # MNIST
