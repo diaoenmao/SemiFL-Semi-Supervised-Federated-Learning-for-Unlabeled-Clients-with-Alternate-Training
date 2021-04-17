@@ -3,10 +3,11 @@
 control:
   num_users: '1'
   active_rate: '1'
-  data_split_mode: 'none'
+  data_split_mode: 'iid'
   num_supervised: '4000'
   user_data_name: 'CIFAR10'
-  threshold: '0.8'
+  user_model_name: 'conv'
+  threshold: '0.3'
 # data
 data_name: CIFAR10
 # MNIST

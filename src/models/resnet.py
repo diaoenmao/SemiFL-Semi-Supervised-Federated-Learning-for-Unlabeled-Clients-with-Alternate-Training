@@ -84,7 +84,9 @@ class ResNet(nn.Module):
         out = out.view(out.size(0), -1)
         out = self.linear(out)
         output['target'] = out
-        output['loss'] = loss_fn(output, input)
+        output['loss'] = loss_fn(output['target'], input['target'])
+        if 'base' in input:
+            output['target'] = output['target'] + input['base']
         return output
 
 

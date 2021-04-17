@@ -143,9 +143,9 @@ def separate_dataset(dataset, data_separate=None):
         data_separate = torch.tensor(idx)[randperm[:num_items]]
         data_separate, _ = torch.sort(data_separate)
     separated_dataset = copy.deepcopy(dataset)
-    separated_dataset.id = [dataset.id[s] for s in data_separate]
     separated_dataset.data = [dataset.data[s] for s in data_separate]
     separated_dataset.target = [dataset.target[s] for s in data_separate]
+    separated_dataset.other['id'] = list(range(len(separated_dataset.data)))
     return separated_dataset, data_separate
 
 
@@ -164,9 +164,9 @@ def separate_dataset_cu(center_dataset, user_dataset, data_separate=None):
 def make_batchnorm_dataset_cu(center_dataset, user_dataset):
     batchnorm_dataset = copy.deepcopy(center_dataset)
     if cfg['data_name'] == cfg['user_data_name']:
-        batchnorm_dataset.id = batchnorm_dataset.id + user_dataset.id
         batchnorm_dataset.data = batchnorm_dataset.data + user_dataset.data
         batchnorm_dataset.target = batchnorm_dataset.target + user_dataset.target
+        batchnorm_dataset.other['id'] = batchnorm_dataset.other['id'] + user_dataset.other['id']
     return batchnorm_dataset
 
 

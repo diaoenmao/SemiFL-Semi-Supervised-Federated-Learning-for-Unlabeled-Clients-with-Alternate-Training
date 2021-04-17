@@ -27,7 +27,9 @@ class Conv(nn.Module):
         x = input['data']
         out = self.blocks(x)
         output['target'] = out
-        output['loss'] = loss_fn(output, input)
+        output['loss'] = loss_fn(output['target'], input['target'])
+        if 'base' in input:
+            output['target'] = output['target'] + input['base']
         return output
 
 
@@ -37,5 +39,5 @@ def conv():
     target_size = cfg['target_size']
     model = Conv(data_shape, hidden_size, target_size)
     model.apply(init_param)
-    model.apply(lambda m: make_batchnorm(m, momentum=None, track_running_stats=False))
+    # model.apply(lambda m: make_batchnorm(m, momentum=None, track_running_stats=False))
     return model

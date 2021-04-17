@@ -1,20 +1,19 @@
 import argparse
-import copy
 import datetime
 import models
-import numpy as np
 import os
 import shutil
 import time
 import torch
 import torch.backends.cudnn as cudnn
-from torch.utils.data import Subset, ConcatDataset
+import numpy as np
 from config import cfg
-from data import fetch_dataset, make_data_loader, split_dataset, separate_dataset_fed, make_stats_batchnorm_fed
-from fed import Federation
+from data import fetch_dataset, split_dataset, make_data_loader, separate_dataset, separate_dataset_cu, \
+    make_batchnorm_dataset_cu
 from metrics import Metric
+from modules import Center, User
 from utils import save, to_device, process_control, process_dataset, make_optimizer, make_scheduler, resume, collate
-from logger import Logger
+from logger import make_logger
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 cudnn.benchmark = True
@@ -36,10 +35,6 @@ def main():
     process_control()
     seeds = list(range(cfg['init_seed'], cfg['init_seed'] + cfg['num_experiments']))
     for i in range(cfg['num_experiments']):
-        teacher_control_name = '1_1_none_{}_{}_{}_none'.format(cfg['augment'], cfg['supervise_rate'],
-                                                               cfg['student_data_name'])
-        teacher_model_tag_list = [str(seeds[i]), cfg['data_name'], cfg['model_name'], teacher_control_name]
-        cfg['teacher_model_tag'] = '_'.join([x for x in teacher_model_tag_list if x])
         model_tag_list = [str(seeds[i]), cfg['data_name'], cfg['model_name'], cfg['control_name']]
         cfg['model_tag'] = '_'.join([x for x in model_tag_list if x])
         print('Experiment: {}'.format(cfg['model_tag']))
@@ -51,71 +46,39 @@ def runExperiment():
     cfg['seed'] = int(cfg['model_tag'].split('_')[0])
     torch.manual_seed(cfg['seed'])
     torch.cuda.manual_seed(cfg['seed'])
-    teacher_dataset = fetch_dataset(cfg['data_name'])
-    student_dataset = fetch_dataset(cfg['student_data_name'])
-    process_dataset(teacher_dataset)
-    teacher_model = eval('models.{}().to(cfg["device"])'.format(cfg['model_name']))
-    teacher_result = resume(cfg['teacher_model_tag'], load_tag='best')
-    teacher_model.load_state_dict(teacher_result['model_state_dict'])
-    model = eval('models.{}().to(cfg["device"])'.format(cfg['model_name']))
-    model.load_state_dict(teacher_result['init_model_state_dict'])
-    local_optimizer = make_optimizer(model, 'local')
-    global_optimizer = make_optimizer(model, 'global')
-    local_scheduler = make_scheduler(local_optimizer, 'global')
-    global_scheduler = make_scheduler(global_optimizer, 'global')
-    metric = Metric({'train': {'Local': ['Local-Loss', 'Local-Accuracy']},
-                     'test': {'Local': ['Local-Loss', 'Local-Accuracy'], 'Global': ['Global-Loss', 'Global-Accuracy']}})
-    teacher_dataset['train'], student_dataset['train'] = separate_dataset_fed(teacher_dataset['train'],
-                                                                              student_dataset['train'],
-                                                                              cfg['supervise_rate'])
-    data_split, target_split = split_dataset(student_dataset, cfg['num_users'], cfg['data_split_mode'])
+    center_dataset = fetch_dataset(cfg['data_name'])
+    user_dataset = fetch_dataset(cfg['user_data_name'])
+    process_dataset(center_dataset)
+    center_dataset['train'], user_dataset['train'], data_separate = separate_dataset_cu(center_dataset['train'],
+                                                                                        user_dataset['train'])
+    batchnorm_dataset = make_batchnorm_dataset_cu(center_dataset['train'], user_dataset['train'])
+    center = make_center(center_dataset)
+    data_split, target_split = split_dataset(user_dataset, cfg['num_users'], cfg['data_split_mode'])
     if cfg['resume_mode'] == 1:
         result = resume(cfg['model_tag'])
         last_epoch = result['epoch']
-        logger = result['logger']
         if last_epoch > 1:
-            model.load_state_dict(result['model_state_dict'])
-            local_optimizer.load_state_dict(result['local_optimizer_state_dict'])
-            local_scheduler.load_state_dict(result['local_scheduler_state_dict'])
-            global_optimizer.load_state_dict(result['global_optimizer_state_dict'])
-            global_scheduler.load_state_dict(result['global_scheduler_state_dict'])
+            center = result['center']
+            data_split = result['data_split']
+            target_split = result['target_split']
+            logger = result['logger']
+        else:
+            logger = make_logger('output/runs/train_{}'.format(cfg['model_tag']))
     else:
         last_epoch = 1
-        current_time = datetime.datetime.now().strftime('%b%d_%H-%M-%S')
-        logger_path = 'output/runs/train_{}_{}'.format(cfg['model_tag'], current_time)
-        logger = Logger(logger_path)
-    federation = Federation(model.state_dict(), global_optimizer.state_dict(), data_split, target_split)
-    test_model = make_stats_batchnorm_fed(teacher_dataset['train'], student_dataset['train'], teacher_model, 'a',
-                                          'global')
-    student_dataset['train'] = make_student_dataset(student_dataset['train'], test_model)
-    test_model = make_stats_batchnorm_fed(teacher_dataset['train'], student_dataset['train'], teacher_model, 'b',
-                                          'global')
-    teacher_dataset['train'] = make_student_dataset(teacher_dataset['train'], test_model)
+        logger = make_logger('output/runs/train_{}'.format(cfg['model_tag']))
+    metric = Metric({'train': ['Loss', 'Accuracy'], 'test': ['Loss', 'Accuracy']})
     for epoch in range(last_epoch, cfg['global']['num_epochs'] + 1):
         logger.safe(True)
-        # train_student(teacher_dataset['train'], student_dataset['train'], federation, model, global_optimizer,
-        #               local_optimizer, metric, logger, epoch)
-        # if cfg['supervise_mode'] == 'separate':
-        # train_teacher(teacher_dataset['train'], model, local_optimizer, metric, logger, epoch)
-        train_teacher(ConcatDataset([teacher_dataset['train'], student_dataset['train']]), model, local_optimizer,
-                      metric, logger, epoch)
-        test_model = make_stats_batchnorm_fed(teacher_dataset['train'], student_dataset['train'], model, 'b', 'global')
-        test(teacher_dataset['test'], test_model, metric, logger, epoch)
-        if cfg['global']['scheduler_name'] == 'ReduceLROnPlateau':
-            local_scheduler.step(metrics=logger.mean['train/{}'.format(cfg['pivot_metric'])])
-        else:
-            local_scheduler.step()
-        if cfg['global']['scheduler_name'] == 'ReduceLROnPlateau':
-            global_scheduler.step(metrics=logger.mean['train/{}'.format(cfg['pivot_metric'])])
-        else:
-            global_scheduler.step()
+        train_center(center, metric, logger)
+        user = make_user(user_dataset, data_split, center)
+        train_user(user, metric, logger, epoch)
+        center.update(user)
+        center.make_batchnorm_stats(batchnorm_dataset)
+        test(center_dataset['test'], center, metric, logger, epoch)
         logger.safe(False)
-        model_state_dict = test_model.state_dict()
         result = {'cfg': cfg, 'epoch': epoch + 1, 'data_split': data_split, 'target_split': target_split,
-                  'model_state_dict': model_state_dict, 'local_optimizer_state_dict': local_optimizer.state_dict(),
-                  'local_scheduler_state_dict': local_scheduler.state_dict(),
-                  'global_optimizer_state_dict': global_optimizer.state_dict(),
-                  'global_scheduler_state_dict': global_scheduler.state_dict(), 'logger': logger}
+                  'center': center, 'logger': logger}
         save(result, './output/model/{}_checkpoint.pt'.format(cfg['model_tag']))
         if metric.compare(logger.mean['test/{}'.format(metric.pivot_name)]):
             metric.update(logger.mean['test/{}'.format(metric.pivot_name)])
@@ -126,134 +89,55 @@ def runExperiment():
     return
 
 
-def train_teacher(dataset, model, optimizer, metric, logger, epoch):
-    data_loader = make_data_loader({'train': dataset}, 'local')['train']
-    model.train(True)
-    for i, input in enumerate(data_loader):
-        input = collate(input)
-        input_size = input['data'].size(0)
-        input = to_device(input, cfg['device'])
-        optimizer.zero_grad()
-        output = model(input)
-        output['loss'] = output['loss'].mean() if cfg['world_size'] > 1 else output['loss']
-        output['loss'].backward()
-        torch.nn.utils.clip_grad_norm_(model.parameters(), 1)
-        optimizer.step()
-        evaluation = metric.evaluate(metric.metric_name['train']['Local'], input, output)
-        logger.append(evaluation, 'train', n=input_size)
-        if i % int((len(data_loader) * cfg['log_interval']) + 1) == 0:
-            lr = optimizer.param_groups[0]['lr']
-            info = {'info': ['Model: {}'.format(cfg['model_tag']),
-                             'Train Epoch: {}({:.0f}%)'.format(epoch, 100. * i / len(data_loader)),
-                             'ID: 0', 'Learning rate: {}'.format(lr)]}
-            logger.append(info, 'train', mean=False)
-            print(logger.write('train', metric.metric_name['train']['Local']))
+def make_center(center_dataset):
+    center = Center(center_dataset, cfg['model_name'], cfg['user_model_name'])
+    return center
+
+
+def train_center(center, metric, logger):
+    dataset = center.make_dataset()
+    center.train(dataset, metric, logger)
     return
 
 
-def train_student(teacher_dataset, student_dataset, federation, model, global_optimizer, local_optimizer, metric,
-                  logger, epoch):
-    local, local_parameters, user_idx = make_local(teacher_dataset, student_dataset, federation)
-    num_active_users = len(local)
-    cfg['local']['lr'] = local_optimizer.param_groups[0]['lr']
+def make_user(user_dataset, data_split, center):
+    num_active_users = int(np.ceil(cfg['active_rate'] * cfg['num_users']))
+    user_id = torch.arange(cfg['num_users'])[torch.randperm(cfg['num_users'])[:num_active_users]].tolist()
+    user = [None for _ in range(num_active_users)]
+    for m in range(num_active_users):
+        user_dataset_m = {'train': separate_dataset(user_dataset['train'], data_split['train'][m])[0],
+                          'test': separate_dataset(user_dataset['test'], data_split['test'][m])[0]}
+        user[m] = User(user_id[m], user_dataset_m, cfg['threshold'], cfg['model_name'], cfg['user_model_name'])
+        center.distribute(user[m])
+    return user
+
+
+def train_user(user, metric, logger, epoch):
+    num_active_users = len(user)
     start_time = time.time()
     for m in range(num_active_users):
-        local_parameters[m] = copy.deepcopy(local[m].train(local_parameters[m], metric, logger))
+        dataset = user[m].make_dataset()
+        if dataset is not None:
+            user[m].train(dataset, metric, logger)
         if m % int((num_active_users * cfg['log_interval']) + 1) == 0:
-            local_time = (time.time() - start_time) / (m + 1)
-            epoch_finished_time = datetime.timedelta(seconds=local_time * (num_active_users - m - 1))
+            _time = (time.time() - start_time) / (m + 1)
+            epoch_finished_time = datetime.timedelta(seconds=_time * (num_active_users - m - 1))
             exp_finished_time = epoch_finished_time + datetime.timedelta(
-                seconds=round((cfg['global']['num_epochs'] - epoch) * local_time * num_active_users))
+                seconds=round((cfg['global']['num_epochs'] - epoch) * _time * num_active_users))
+            exp_progress = 100. * m / num_active_users
             info = {'info': ['Model: {}'.format(cfg['model_tag']),
-                             'Train Epoch: {}({:.0f}%)'.format(epoch, 100. * m / num_active_users),
-                             'ID: {}({}/{})'.format(user_idx[m], m + 1, num_active_users),
-                             'Learning rate: {}'.format(cfg['local']['lr']),
+                             'User Train Epoch: {}({:.0f}%)'.format(epoch, exp_progress),
+                             'ID: {}({}/{})'.format(user[m].user_id, m + 1, num_active_users),
                              'Epoch Finished Time: {}'.format(epoch_finished_time),
                              'Experiment Finished Time: {}'.format(exp_finished_time)]}
             logger.append(info, 'train', mean=False)
-            print(logger.write('train', metric.metric_name['train']['Local']))
-    federation.update(model, global_optimizer, local_parameters)
+            print(logger.write('train', metric.metric_name['train']))
     return
 
 
-def make_student_dataset(student_dataset, teacher_model):
-    with torch.no_grad():
-        student_data_loader = make_data_loader({'train': student_dataset.dataset}, 'global',
-                                               shuffle={'train': False})['train']
-        teacher_model.train(False)
-        target = []
-        for i, input in enumerate(student_data_loader):
-            input = collate(input)
-            input['target'] = None
-            input = to_device(input, cfg['device'])
-            output = teacher_model(input)
-            target.append(output['target'])
-        target = torch.cat(target, dim=0).cpu().numpy()
-        student_dataset.dataset.target = target
-    return student_dataset
-
-
-def test(dataset, model, metric, logger, epoch):
-    with torch.no_grad():
-        model.train(False)
-        data_loader = make_data_loader({'test': dataset}, 'global')['test']
-        for i, input in enumerate(data_loader):
-            input = collate(input)
-            input_size = input['data'].size(0)
-            input = to_device(input, cfg['device'])
-            output = model(input)
-            output['loss'] = output['loss'].mean() if cfg['world_size'] > 1 else output['loss']
-            evaluation = metric.evaluate(metric.metric_name['test']['Global'], input, output)
-            logger.append(evaluation, 'test', input_size)
-        info = {'info': ['Model: {}'.format(cfg['model_tag']), 'Test Epoch: {}({:.0f}%)'.format(epoch, 100.)]}
-        logger.append(info, 'test', mean=False)
-        print(logger.write('test', metric.metric_name['test']['Global']))
+def test(dataset, center, metric, logger, epoch):
+    center.test(dataset, metric, logger, epoch)
     return
-
-
-def make_local(teacher_dataset, student_dataset, federation):
-    num_active_users = int(np.ceil(cfg['active_rate'] * cfg['num_users']))
-    user_idx = torch.arange(cfg['num_users'])[torch.randperm(cfg['num_users'])[:num_active_users]].tolist()
-    local_parameters = federation.distribute(user_idx)
-    local = [None for _ in range(num_active_users)]
-    for m in range(num_active_users):
-        if cfg['supervise_mode'] == 'separate':
-            dataset = Subset(student_dataset, federation.data_split['train'][user_idx[m]])
-        elif cfg['supervise_mode'] == 'join':
-            dataset = ConcatDataset(
-                [teacher_dataset, Subset(student_dataset, federation.data_split['train'][user_idx[m]])])
-        else:
-            raise ValueError('Not valid supervise mode')
-        data_loader_m = make_data_loader({'train': dataset}, 'local')['train']
-        local[m] = Local(data_loader_m, federation.target_split[user_idx[m]])
-    return local, local_parameters, user_idx
-
-
-class Local:
-    def __init__(self, data_loader, target_split):
-        self.data_loader = data_loader
-        self.target_split = target_split
-
-    def train(self, local_parameters, metric, logger):
-        model = eval('models.{}().to(cfg["device"])'.format(cfg['model_name']))
-        model.load_state_dict(local_parameters)
-        model.train(True)
-        optimizer = make_optimizer(model, 'local')
-        for local_epoch in range(1, cfg['local']['num_epochs'] + 1):
-            for i, input in enumerate(self.data_loader):
-                input = collate(input)
-                input_size = input['data'].size(0)
-                input['target_split'] = torch.tensor(self.target_split)
-                input = to_device(input, cfg['device'])
-                optimizer.zero_grad()
-                output = model(input)
-                output['loss'].backward()
-                torch.nn.utils.clip_grad_norm_(model.parameters(), 1)
-                optimizer.step()
-                evaluation = metric.evaluate(metric.metric_name['train']['Local'], input, output)
-                logger.append(evaluation, 'train', n=input_size)
-        local_parameters = model.state_dict()
-        return local_parameters
 
 
 if __name__ == "__main__":

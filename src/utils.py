@@ -110,6 +110,7 @@ def process_control():
     cfg['data_split_mode'] = cfg['control']['data_split_mode']
     cfg['num_supervised'] = int(cfg['control']['num_supervised'])
     cfg['user_data_name'] = cfg['control']['user_data_name']
+    cfg['user_model_name'] = cfg['control']['user_model_name']
     if cfg['control']['threshold'] != 'none':
         cfg['threshold'] = float(cfg['control']['threshold'])
     else:
@@ -122,34 +123,33 @@ def process_control():
     cfg['wresnet28x8'] = {'depth': 28, 'widen_factor': 8, 'drop_rate': 0.0}
     cfg['wresnet37x2'] = {'depth': 37, 'widen_factor': 2, 'drop_rate': 0.0}
     if cfg['data_split_mode'] in ['iid']:
-        model_name = cfg['model_name']
-        cfg[model_name]['shuffle'] = {'train': True, 'test': False}
-        cfg['local'] = {}
-        cfg['local']['shuffle'] = {'train': True, 'test': False}
-        cfg['local']['optimizer_name'] = 'SGD'
-        cfg['local']['lr'] = 1e-1
-        cfg['local']['momentum'] = 0.9
-        cfg['local']['weight_decay'] = 5e-4
-        cfg['local']['nesterov'] = False
+        cfg['center'] = {}
+        cfg['center']['shuffle'] = {'train': True, 'test': False}
+        cfg['center']['optimizer_name'] = 'SGD'
+        cfg['center']['lr'] = 1e-1
+        cfg['center']['momentum'] = 0.9
+        cfg['center']['weight_decay'] = 5e-4
+        cfg['center']['nesterov'] = False
+        cfg['center']['scheduler_name'] = 'None'
+        cfg['center']['num_epochs'] = 10
+        cfg['center']['batch_size'] = {'train': 250, 'test': 500}
+        cfg['user'] = {}
+        cfg['user']['shuffle'] = {'train': True, 'test': False}
+        cfg['user']['optimizer_name'] = 'SGD'
+        cfg['user']['lr'] = 1e-1
+        cfg['user']['momentum'] = 0.9
+        cfg['user']['weight_decay'] = 5e-4
+        cfg['user']['nesterov'] = False
+        cfg['user']['scheduler_name'] = 'None'
+        cfg['user']['num_epochs'] = 1
+        cfg['user']['batch_size'] = {'train': 250, 'test': 500}
         cfg['global'] = {}
+        cfg['global']['batch_size'] = {'train': 250, 'test': 500}
         cfg['global']['shuffle'] = {'train': True, 'test': False}
-        cfg['global']['optimizer_name'] = 'SGD'
-        cfg['global']['lr'] = 1
-        cfg['global']['momentum'] = 0
-        cfg['global']['weight_decay'] = 0
-        cfg['global']['nesterov'] = False
-        cfg['global']['scheduler_name'] = 'MultiStepLR'
-        cfg['global']['factor'] = 0.1
-        cfg['global']['milestones'] = [100, 200]
         if cfg['data_split_mode'] == 'iid':
-            cfg['local']['num_epochs'] = 1
             cfg['global']['num_epochs'] = 400
-            cfg['local']['batch_size'] = {'train': 250, 'test': 250}
-            cfg['global']['batch_size'] = {'train': 250, 'test': 250}
         elif 'non-iid' in cfg['data_split_mode']:
-            cfg['local']['num_epochs'] = 1
             cfg['global']['num_epochs'] = 800
-            cfg[model_name]['batch_size'] = {'train': 10, 'test': 250}
         else:
             raise ValueError('Not valid data_split_mode')
     else:
