@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from .utils import init_param, make_batchnorm, loss_fn
+from .utils import init_param, make_batchnorm, loss_fn, kld_loss
 from config import cfg
 
 
@@ -71,22 +71,28 @@ class ResNet(nn.Module):
             self.in_planes = planes * block.expansion
         return nn.Sequential(*layers)
 
+    def f(self, x):
+        x = self.conv1(x)
+        x = self.layer1(x)
+        x = self.layer2(x)
+        x = self.layer3(x)
+        x = self.layer4(x)
+        x = F.relu(self.n4(x))
+        x = F.adaptive_avg_pool2d(x, 1)
+        x = x.view(x.size(0), -1)
+        x = self.linear(x)
+        return x
+
     def forward(self, input):
         output = {}
-        x = input['data']
-        out = self.conv1(x)
-        out = self.layer1(out)
-        out = self.layer2(out)
-        out = self.layer3(out)
-        out = self.layer4(out)
-        out = F.relu(self.n4(out))
-        out = F.adaptive_avg_pool2d(out, 1)
-        out = out.view(out.size(0), -1)
-        out = self.linear(out)
-        output['target'] = out
-        output['loss'] = loss_fn(output['target'], input['target'])
-        if 'buffer' in input:
-            output['target'] = input['buffer'] + output['target']
+        output['target'] = self.f(input['data'])
+        if 'weight' in input:
+            output['loss'] = loss_fn(output['target'], input['target'], input['weight'])
+        else:
+            output['loss'] = loss_fn(output['target'], input['target'])
+        if 'uda' in input:
+            out = self.f(input['uda'])
+            output['loss'] = output['loss'] + kld_loss(out, output['target'].detach(), input['weight'], T=0.4)
         return output
 
 

@@ -110,11 +110,6 @@ def process_control():
     cfg['data_split_mode'] = cfg['control']['data_split_mode']
     cfg['num_supervised'] = int(cfg['control']['num_supervised'])
     cfg['user_data_name'] = cfg['control']['user_data_name']
-    cfg['user_model_name'] = cfg['control']['user_model_name']
-    if cfg['control']['threshold'] != 'none':
-        cfg['threshold'] = float(cfg['control']['threshold'])
-    else:
-        cfg['threshold'] = cfg['control']['threshold']
     data_shape = {'MNIST': [1, 28, 28], 'CIFAR10': [3, 32, 32], 'CIFAR100': [3, 32, 32]}
     cfg['data_shape'] = data_shape[cfg['data_name']]
     cfg['conv'] = {'hidden_size': [64, 128, 256, 512]}
@@ -122,7 +117,7 @@ def process_control():
     cfg['wresnet28x2'] = {'depth': 28, 'widen_factor': 2, 'drop_rate': 0.0}
     cfg['wresnet28x8'] = {'depth': 28, 'widen_factor': 8, 'drop_rate': 0.0}
     cfg['wresnet37x2'] = {'depth': 37, 'widen_factor': 2, 'drop_rate': 0.0}
-    if cfg['data_split_mode'] in ['iid']:
+    if cfg['data_split_mode'] in ['iid'] or 'non-iid' in cfg['data_split_mode']:
         cfg['center'] = {}
         cfg['center']['shuffle'] = {'train': True, 'test': False}
         cfg['center']['optimizer_name'] = 'SGD'
@@ -130,8 +125,7 @@ def process_control():
         cfg['center']['momentum'] = 0.9
         cfg['center']['weight_decay'] = 5e-4
         cfg['center']['nesterov'] = False
-        cfg['center']['scheduler_name'] = 'None'
-        cfg['center']['num_epochs'] = 10
+        cfg['center']['num_epochs'] = 5
         cfg['center']['batch_size'] = {'train': 250, 'test': 500}
         cfg['user'] = {}
         cfg['user']['shuffle'] = {'train': True, 'test': False}
@@ -140,22 +134,25 @@ def process_control():
         cfg['user']['momentum'] = 0.9
         cfg['user']['weight_decay'] = 5e-4
         cfg['user']['nesterov'] = False
-        cfg['user']['scheduler_name'] = 'None'
-        cfg['user']['num_epochs'] = 10
-        cfg['user']['batch_size'] = {'train': 250, 'test': 500}
+        cfg['user']['num_epochs'] = 5
+        if cfg['num_users'] > 10:
+            cfg['user']['batch_size'] = {'train': 250, 'test': 500}
+        else:
+            cfg['user']['batch_size'] = {'train': 10, 'test': 50}
         cfg['global'] = {}
         cfg['global']['batch_size'] = {'train': 250, 'test': 500}
         cfg['global']['shuffle'] = {'train': True, 'test': False}
+        cfg['global']['scheduler_name'] = 'CosineAnnealingLR'
         if cfg['data_split_mode'] == 'iid':
-            cfg['global']['num_epochs'] = 10
+            cfg['global']['num_epochs'] = 300
         elif 'non-iid' in cfg['data_split_mode']:
-            cfg['global']['num_epochs'] = 20
+            cfg['global']['num_epochs'] = 600
         else:
             raise ValueError('Not valid data_split_mode')
-        cfg['linesearch'] = {}
-        cfg['linesearch']['optimizer_name'] = 'LBFGS'
-        cfg['linesearch']['lr'] = 1
-        cfg['linesearch']['num_epochs'] = 10
+        cfg['global']['teach_iter'] = 3
+        threshold = float(cfg['control']['threshold'])
+        # cfg['threshold'] = torch.linspace(threshold, 1 / cfg['target_size'] + 0.05, cfg['global']['teach_iter'])
+        cfg['threshold'] = [threshold for _ in range(cfg['global']['teach_iter'])]
     else:
         model_name = cfg['model_name']
         cfg[model_name]['shuffle'] = {'train': True, 'test': False}

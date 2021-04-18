@@ -82,10 +82,7 @@ def split_dataset(dataset, num_users, data_split_mode):
 
 
 def iid(dataset, num_users):
-    if isinstance(dataset, Subset):
-        target = torch.tensor(dataset.dataset.target)[dataset.indices]
-    else:
-        target = torch.tensor(dataset.target)
+    target = torch.tensor(dataset.target)
     num_items = int(len(dataset) / num_users)
     data_split, idx = {}, list(range(len(dataset)))
     target_split = {}
@@ -98,12 +95,8 @@ def iid(dataset, num_users):
 
 
 def non_iid(dataset, num_users, target_split=None):
-    if isinstance(dataset, Subset):
-        target = np.array(dataset.dataset.target)[dataset.indices]
-    else:
-        target = np.array(dataset.target)
-    cfg['non-iid-n'] = int(cfg['data_split_mode'].split('-')[-1])
-    shard_per_user = cfg['non-iid-n']
+    target = np.array(dataset.target)
+    shard_per_user = int(cfg['data_split_mode'].split('-')[-1])
     data_split = {i: [] for i in range(num_users)}
     target_idx_split = {}
     for i in range(len(target)):
@@ -170,14 +163,19 @@ def make_batchnorm_dataset_cu(center_dataset, user_dataset):
     return batchnorm_dataset
 
 
-def make_batchnorm_stats(dataset, model, tag):
+def make_dataset_normal(dataset):
     import datasets
+    _transform = dataset.transform
+    transform = datasets.Compose([transforms.ToTensor(), transforms.Normalize(*data_stats[cfg['data_name']])])
+    dataset.transform = transform
+    return dataset, _transform
+
+
+def make_batchnorm_stats(dataset, model, tag):
     with torch.no_grad():
         test_model = copy.deepcopy(model)
         test_model.apply(lambda m: models.make_batchnorm(m, momentum=None, track_running_stats=True))
-        _transform = dataset.transform
-        transform = datasets.Compose([transforms.ToTensor(), transforms.Normalize(*data_stats[cfg['data_name']])])
-        dataset.transform = transform
+        dataset, _transform = make_dataset_normal(dataset)
         data_loader = make_data_loader({'train': dataset}, tag, shuffle={'train': False})['train']
         test_model.train(True)
         for i, input in enumerate(data_loader):

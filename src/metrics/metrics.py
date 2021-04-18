@@ -20,11 +20,7 @@ class Metric(object):
         self.metric_name = self.make_metric_name(metric_name)
         self.pivot, self.pivot_name, self.pivot_direction = self.make_pivot()
         self.metric = {'Loss': (lambda input, output: output['loss'].item()),
-                       'Local-Loss': (lambda input, output: output['loss'].item()),
-                       'Global-Loss': (lambda input, output: output['loss'].item()),
-                       'Accuracy': (lambda input, output: recur(Accuracy, output['target'], input['target'])),
-                       'Local-Accuracy': (lambda input, output: recur(Accuracy, output['target'], input['target'])),
-                       'Global-Accuracy': (lambda input, output: recur(Accuracy, output['target'], input['target']))}
+                       'Accuracy': (lambda input, output: recur(Accuracy, output['target'], input['target']))}
 
     def make_metric_name(self, metric_name):
         return metric_name
@@ -33,10 +29,7 @@ class Metric(object):
         if cfg['data_name'] in ['MNIST', 'CIFAR10', 'CIFAR100']:
             pivot = -float('inf')
             pivot_direction = 'up'
-            if cfg['data_split_mode'] == 'iid':
-                pivot_name = 'Global-Accuracy'
-            else:
-                pivot_name = 'Accuracy'
+            pivot_name = 'Accuracy'
         else:
             raise ValueError('Not valid data name')
         return pivot, pivot_name, pivot_direction

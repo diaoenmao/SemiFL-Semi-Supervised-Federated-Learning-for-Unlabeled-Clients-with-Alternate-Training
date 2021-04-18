@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from config import cfg
-from .utils import init_param, make_batchnorm, loss_fn
+from .utils import init_param, make_batchnorm, loss_fn, kld_loss
 
 
 class Conv(nn.Module):
@@ -22,14 +22,20 @@ class Conv(nn.Module):
                        nn.Linear(hidden_size[-1], target_size)])
         self.blocks = nn.Sequential(*blocks)
 
+    def f(self, x):
+        x = self.blocks(x)
+        return x
+
     def forward(self, input):
         output = {}
-        x = input['data']
-        out = self.blocks(x)
-        output['target'] = out
-        output['loss'] = loss_fn(output['target'], input['target'])
-        if 'buffer' in input:
-            output['target'] = input['buffer'] + output['target']
+        output['target'] = self.f(input['data'])
+        if 'weight' in input:
+            output['loss'] = loss_fn(output['target'], input['target'], input['weight'])
+        else:
+            output['loss'] = loss_fn(output['target'], input['target'])
+        if 'uda' in input:
+            out = self.f(input['uda'])
+            output['loss'] = output['loss'] + kld_loss(out, output['target'].detach(), input['weight'], T=0.4)
         return output
 
 

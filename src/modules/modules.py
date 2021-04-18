@@ -8,182 +8,51 @@ import torch.nn.functional as F
 import models
 from itertools import compress
 from config import cfg
-from data import make_data_loader, make_batchnorm_stats
+from data import make_data_loader, make_dataset_normal
 from utils import to_device, make_optimizer, make_scheduler, collate
-
-
-def make_residual(output, target):
-    output.requires_grad = True
-    loss = models.loss_fn(output, target, reduction='sum')
-    loss.backward()
-    residual = - copy.deepcopy(output.grad)
-    output.detach_()
-    return residual
+from metrics import Accuracy
 
 
 class Center:
-    def __init__(self, center_dataset, batchnorm_dataset, center_parameters, center_model_name, user_model_name):
+    def __init__(self, center_dataset, teacher_model, model):
         self.center_dataset = center_dataset
-        self.batchnorm_dataset = batchnorm_dataset
-        self.center_model_name = center_model_name
-        self.user_model_name = user_model_name
-        self.center_parameters, self.buffer = self.initialize(center_parameters)
-        self.user_parameters = []
-        self.user_learning_rate = []
-
-    def initialize(self, parameters):
-        with torch.no_grad():
-            model = eval('models.{}().to(cfg["device"])'.format(self.center_model_name))
-            model.load_state_dict(parameters)
-            model = make_batchnorm_stats(self.batchnorm_dataset, model, 'center')
-            parameters = model.state_dict()
-            data_loader = make_data_loader(self.center_dataset, 'center', shuffle={'train': False, 'test': False})
-            buffer = {split: [] for split in self.center_dataset}
-            for split in self.center_dataset:
-                for i, input in enumerate(data_loader[split]):
-                    input = collate(input)
-                    input = to_device(input, cfg['device'])
-                    buffer[split].append(model(input)['target'].cpu())
-                buffer[split] = torch.cat(buffer[split], dim=0)
-        return parameters, buffer
+        self.teacher_model = teacher_model
+        self.model_state_dict = model.state_dict()
+        optimizer = make_optimizer(model, 'center')
+        scheduler = make_scheduler(optimizer, 'global')
+        self.optimizer_state_dict = optimizer.state_dict()
+        self.scheduler_state_dict = scheduler.state_dict()
 
     def distribute(self, user):
         for m in range(len(user)):
-            user[m].center_parameters = copy.deepcopy(self.center_parameters)
-            user[m].user_parameters = copy.deepcopy(self.user_parameters)
-            user[m].user_learning_rate = copy.deepcopy(self.user_learning_rate)
+            user[m].model_state_dict = copy.deepcopy(self.model_state_dict)
         return
 
     def update(self, user):
         with torch.no_grad():
-            model = eval('models.{}()'.format(self.user_model_name))
+            model = eval('models.{}().to(cfg["device"])'.format(cfg['model_name']))
+            model.load_state_dict(self.model_state_dict)
             for k, v in model.named_parameters():
                 parameter_type = k.split('.')[-1]
                 if 'weight' in parameter_type or 'bias' in parameter_type:
-                    tmp_v = v.new_zeros(v.size(), dtype=torch.float32)
+                    tmp_v = copy.deepcopy(v)
                     for m in range(len(user)):
-                        tmp_v += user[m].user_parameters[-1][k]
-                    tmp_v = tmp_v / len(user)
+                        tmp_v += user[m].model_state_dict[k]
+                    tmp_v = tmp_v / (len(user) + 1)
                     v.data = tmp_v.data
-            model = make_batchnorm_stats(self.batchnorm_dataset, model.to(cfg['device']), 'user')
-            self.user_parameters.append(model.to('cpu').state_dict())
+            self.model_state_dict = model.state_dict()
         return
 
-    def search(self):
-        model = eval('models.{}().to(cfg["device"])'.format(self.user_model_name))
-        model.load_state_dict(self.user_parameters[-1])
-        data_loader = make_data_loader(self.center_dataset, 'center', shuffle={'train': False, 'test': False})
-        output = {split: [] for split in self.center_dataset}
-        for split in self.center_dataset:
-            for i, input in enumerate(data_loader[split]):
-                input = collate(input)
-                input = to_device(input, cfg['device'])
-                with torch.no_grad():
-                    output[split].append(model(input)['target'].cpu())
-            output[split] = torch.cat(output[split], dim=0)
-            if split == 'train':
-                input = {'buffer': self.buffer['train'],
-                         'output': output['train'],
-                         'target': torch.tensor(self.center_dataset['train'].target)}
-                input = to_device(input, cfg['device'])
-                ls = models.linesearch().to(cfg['device'])
-                ls.train(True)
-                optimizer = make_optimizer(ls, 'linesearch')
-                for linearsearch_epoch in range(1, cfg['linesearch']['num_epochs'] + 1):
-                    def closure():
-                        output = ls(input)
-                        optimizer.zero_grad()
-                        output['loss'].backward()
-                        return output['loss']
-
-                    optimizer.step(closure)
-                self.user_learning_rate.append(ls.learning_rate.data.cpu())
-                print('Learning Rate: {}'.format(self.user_learning_rate[-1].tolist()))
-            with torch.no_grad():
-                self.buffer[split] = (self.buffer[split] + self.user_learning_rate[-1] * output[split]).detach()
-        return
-
-    def test(self, metric, logger, epoch):
-        with torch.no_grad():
-            input_size = len(self.center_dataset['test'])
-            input = {'target': torch.tensor(self.center_dataset['test'].target)}
-            output = {'target': self.buffer['test']}
-            output['loss'] = models.loss_fn(output['target'], input['target'])
-            evaluation = metric.evaluate(metric.metric_name['test'], input, output)
-            logger.append(evaluation, 'test', input_size)
-            info = {'info': ['Model: {}'.format(cfg['model_tag']), 'Test Epoch: {}({:.0f}%)'.format(epoch, 100.)]}
-            logger.append(info, 'test', mean=False)
-            print(logger.write('test', metric.metric_name['test']))
-        return
-
-
-class User:
-    def __init__(self, user_id, user_dataset, threshold, center_model_name, user_model_name):
-        self.user_id = user_id
-        self.user_dataset = user_dataset
-        self.threshold = threshold
-        self.center_model_name = center_model_name
-        self.user_model_name = user_model_name
-        self.center_parameters = None
-        self.user_parameters = []
-        self.user_learning_rate = []
-
-    def make_hard_pseudo_label(self, logits):
-        soft_pseudo_label = F.softmax(logits, dim=-1)
-        max_p, hard_pseudo_label = torch.max(soft_pseudo_label, dim=-1)
-        mask = max_p.ge(self.threshold)
-        return hard_pseudo_label, mask
-
-    def make_dataset(self):
-        data_loader = make_data_loader({'train': self.user_dataset['train']}, 'user', shuffle={'train': False})['train']
-        if len(self.user_parameters) == 0:
-            center_model = eval('models.{}().to(cfg["device"])'.format(self.center_model_name))
-            center_model.load_state_dict(self.center_parameters)
-            center_model.train(False)
-            buffer = []
-            for i, input in enumerate(data_loader):
-                input = collate(input)
-                input = to_device(input, cfg['device'])
-                with torch.no_grad():
-                    output = center_model(input)
-                buffer_i = output['target']
-                buffer.append(buffer_i.cpu())
-            self.buffer = torch.cat(buffer, dim=0)
-        else:
-            user_model = eval('models.{}().to(cfg["device"])'.format(self.user_model_name))
-            user_model.load_state_dict(self.user_parameters[-1])
-            user_model.train(False)
-            new = []
-            for i, input in enumerate(data_loader):
-                input = collate(input)
-                input = to_device(input, cfg['device'])
-                with torch.no_grad():
-                    output = user_model(input)
-                new_i = self.user_learning_rate[-1].to(cfg['device']) * output['target']
-                new.append(new_i.cpu())
-            new = torch.cat(new, dim=0)
-            self.buffer = self.buffer + new
-        target, mask = self.make_hard_pseudo_label(self.buffer)
-        print('Number of labeled data in User {}: {}'.format(self.user_id, int(mask.float().sum())))
-        if torch.all(~mask):
-            dataset = None
-        else:
-            dataset = copy.deepcopy(self.user_dataset['train'])
-            dataset.target = target.tolist()
-            mask = mask.tolist()
-            dataset.data = list(compress(dataset.data, mask))
-            dataset.target = list(compress(dataset.target, mask))
-            dataset.other = {'id': list(range(len(dataset.data))), 'buffer': list(compress(self.buffer.tolist(), mask))}
-        return dataset
-
-    def train(self, dataset, metric, logger):
-        data_loader = make_data_loader({'train': dataset}, 'user')['train']
-        model = eval('models.{}().to(cfg["device"])'.format(self.user_model_name))
+    def train(self, metric, logger):
+        data_loader = make_data_loader(self.center_dataset, 'center')['train']
+        model = eval('models.{}().to(cfg["device"])'.format(cfg['model_name']))
+        model.load_state_dict(self.model_state_dict)
+        optimizer = make_optimizer(model, 'center')
+        optimizer.load_state_dict(self.optimizer_state_dict)
+        scheduler = make_scheduler(optimizer, 'global')
+        scheduler.load_state_dict(self.scheduler_state_dict)
         model.train(True)
-        optimizer = make_optimizer(model, 'user')
-        scheduler = make_scheduler(optimizer, 'user')
         for epoch in range(1, cfg['user']['num_epochs'] + 1):
-            start_time = time.time()
             for i, input in enumerate(data_loader):
                 input = collate(input)
                 input_size = input['data'].size(0)
@@ -195,17 +64,99 @@ class User:
                 optimizer.step()
                 evaluation = metric.evaluate(metric.metric_name['train'], input, output)
                 logger.append(evaluation, 'train', n=input_size)
-            scheduler.step()
-            if epoch % int((cfg['user']['num_epochs'] * cfg['log_interval']) + 1) == 0:
-                _time = (time.time() - start_time)
-                epoch_finished_time = datetime.timedelta(
-                    seconds=round((cfg['user']['num_epochs'] - epoch) * _time))
-                epoch_progress = 100. * epoch / cfg['user']['num_epochs']
-                info = {'info': ['Model: {}'.format(cfg['model_tag']),
-                                 'User ({}) Train Epoch: {}({:.0f}%)'.format(self.user_id, epoch, epoch_progress),
-                                 'User Finished Time: {}'.format(epoch_finished_time)]}
-                logger.append(info, 'train', mean=False)
-                print(logger.write('train', metric.metric_name['train']))
-        self.user_parameters.append(model.to('cpu').state_dict())
+        scheduler.step()
+        self.model_state_dict = model.state_dict()
+        self.optimizer_state_dict = optimizer.state_dict()
+        self.scheduler_state_dict = scheduler.state_dict()
         return
 
+
+class User:
+    def __init__(self, user_id, user_dataset, teacher_model, model, threshold):
+        self.user_id = user_id
+        self.user_dataset = user_dataset
+        self.teacher_model = teacher_model
+        self.model_state_dict = model.state_dict()
+        optimizer = make_optimizer(model, 'user')
+        scheduler = make_scheduler(optimizer, 'global')
+        self.optimizer_state_dict = optimizer.state_dict()
+        self.scheduler_state_dict = scheduler.state_dict()
+        self.threshold = threshold
+        self.user_dataset['train'], self.mask = self.make_dataset(self.user_dataset['train'])
+
+    def make_hard_pseudo_label(self, logits):
+        soft_pseudo_label = F.softmax(logits, dim=-1)
+        max_p, hard_pseudo_label = torch.max(soft_pseudo_label, dim=-1)
+        mask = max_p.ge(self.threshold)
+        return hard_pseudo_label, mask
+
+    def make_dataset(self, dataset):
+        with torch.no_grad():
+            dataset, _transform = make_dataset_normal(dataset)
+            data_loader = make_data_loader({'train': dataset}, 'user', shuffle={'train': False})['train']
+            self.teacher_model.train(False)
+            output = []
+            target = []
+            for i, input in enumerate(data_loader):
+                input = collate(input)
+                input = to_device(input, cfg['device'])
+                _output = self.teacher_model(input)
+                output_i = _output['target']
+                target_i = input['target']
+                output.append(output_i.cpu())
+                target.append(target_i.cpu())
+            dataset.transform = _transform
+            output = torch.cat(output, dim=0)
+            target = torch.cat(target, dim=0)
+            acc = Accuracy(output, target)
+            new_target, mask = self.make_hard_pseudo_label(output)
+            if torch.all(~mask):
+                raise ValueError('Not valid threshold')
+            else:
+                new_acc = Accuracy(output[mask], target[mask])
+                num_labeled = int(mask.float().sum())
+                print('Accuracy: {:.3f} ({:.3f}), Number of Labeled: {}'.format(acc, new_acc, num_labeled))
+                dataset = copy.deepcopy(dataset)
+                dataset.target = new_target.tolist()
+                mask = mask.tolist()
+                dataset.data = list(compress(dataset.data, mask))
+                dataset.target = list(compress(dataset.target, mask))
+                dataset.other = {'id': list(range(len(dataset.data)))}
+                target = torch.tensor(dataset.target)
+                cls_indx, cls_counts = torch.unique(target, return_counts=True)
+                num_samples_per_cls = torch.zeros(cfg['target_size'], dtype=torch.float32)
+                num_samples_per_cls[cls_indx] = cls_counts.float()
+                beta = torch.tensor(0.999, dtype=torch.float32)
+                effective_num = 1.0 - beta.pow(num_samples_per_cls)
+                weight = (1.0 - beta) / effective_num
+                weight[torch.isinf(weight)] = 0
+                self.weight = weight / torch.sum(weight) * (weight > 0).float().sum()
+        return dataset, mask
+
+    def train(self, metric, logger):
+        data_loader = make_data_loader(self.user_dataset, 'user')['train']
+        model = eval('models.{}().to(cfg["device"])'.format(cfg['model_name']))
+        model.load_state_dict(self.model_state_dict)
+        optimizer = make_optimizer(model, 'user')
+        optimizer.load_state_dict(self.optimizer_state_dict)
+        scheduler = make_scheduler(optimizer, 'global')
+        scheduler.load_state_dict(self.scheduler_state_dict)
+        model.train(True)
+        for epoch in range(1, cfg['user']['num_epochs'] + 1):
+            for i, input in enumerate(data_loader):
+                input = collate(input)
+                input_size = input['data'].size(0)
+                input['weight'] = self.weight
+                input = to_device(input, cfg['device'])
+                optimizer.zero_grad()
+                output = model(input)
+                output['loss'].backward()
+                torch.nn.utils.clip_grad_norm_(model.parameters(), 1)
+                optimizer.step()
+                evaluation = metric.evaluate(metric.metric_name['train'], input, output)
+                logger.append(evaluation, 'train', n=input_size)
+        scheduler.step()
+        self.model_state_dict = model.state_dict()
+        self.optimizer_state_dict = optimizer.state_dict()
+        self.scheduler_state_dict = scheduler.state_dict()
+        return

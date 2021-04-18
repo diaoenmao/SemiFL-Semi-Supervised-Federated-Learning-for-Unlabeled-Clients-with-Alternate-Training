@@ -46,10 +46,8 @@ def runExperiment():
     metric = Metric({'test': ['Loss', 'Accuracy']})
     result = resume(cfg['model_tag'], load_tag='best')
     last_epoch = result['epoch']
-    data_separate = None
-    if last_epoch > 1:
-        data_separate = result['data_separate']
-        model.load_state_dict(result['model_state_dict'])
+    data_separate = result['data_separate']
+    model.load_state_dict(result['model_state_dict'])
     dataset['train'], data_separate = separate_dataset(dataset['train'], data_separate)
     data_loader = make_data_loader(dataset, cfg['model_name'])
     test_logger = make_logger('output/runs/test_{}'.format(cfg['model_tag']))

@@ -1,15 +1,13 @@
 import argparse
-import copy
-import datetime
 import os
 import torch
 import torch.backends.cudnn as cudnn
 import models
 from config import cfg
-from data import fetch_dataset, make_data_loader, split_dataset, separate_dataset_fed, make_stats_batchnorm_fed
+from data import fetch_dataset, make_data_loader, separate_dataset, make_batchnorm_stats
 from metrics import Metric
 from utils import save, to_device, process_control, process_dataset, resume, collate
-from logger import Logger
+from logger import make_logger
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 cudnn.benchmark = True
@@ -42,48 +40,47 @@ def runExperiment():
     cfg['seed'] = int(cfg['model_tag'].split('_')[0])
     torch.manual_seed(cfg['seed'])
     torch.cuda.manual_seed(cfg['seed'])
-    teacher_dataset = fetch_dataset(cfg['data_name'])
-    student_dataset = fetch_dataset(cfg['student_data_name'])
-    process_dataset(teacher_dataset)
-    teacher_dataset['train'], student_dataset['train'] = separate_dataset_fed(teacher_dataset['train'],
-                                                                              student_dataset['train'],
-                                                                              cfg['supervise_rate'])
-    data_split, target_split = split_dataset(student_dataset, cfg['num_users'], cfg['data_split_mode'])
+    dataset = fetch_dataset(cfg['data_name'])
+    process_dataset(dataset)
     model = eval('models.{}().to(cfg["device"])'.format(cfg['model_name']))
-    metric = Metric({'test': {'Local': ['Local-Loss', 'Local-Accuracy'], 'Global': ['Global-Loss', 'Global-Accuracy']}})
+    metric = Metric({'test': ['Loss', 'Accuracy']})
     result = resume(cfg['model_tag'], load_tag='best')
+    iter = result['iter']
     last_epoch = result['epoch']
-    if last_epoch > 1:
-        model.load_state_dict(result['model_state_dict'])
-    current_time = datetime.datetime.now().strftime('%b%d_%H-%M-%S')
-    logger_path = 'output/runs/test_{}_{}'.format(cfg['model_tag'], current_time)
-    test_logger = Logger(logger_path)
+    data_separate = result['data_separate']
+    mask = result['mask']
+    data_split = result['data_split']
+    target_split = result['target_split']
+    model.load_state_dict(result['model_state_dict'])
+    data_loader = make_data_loader(dataset, 'center')
+    test_logger = make_logger('output/runs/test_{}'.format(cfg['model_tag']))
     test_logger.safe(True)
-    test_model = make_stats_batchnorm_fed(teacher_dataset['train'], student_dataset['train'], model, 'b', 'global')
-    test(teacher_dataset['test'], test_model, metric, test_logger, last_epoch)
+    test_model = make_batchnorm_stats(dataset['train'], model, 'center')
+    test(data_loader['test'], test_model, metric, test_logger, last_epoch)
     test_logger.safe(False)
     result = resume(cfg['model_tag'], load_tag='checkpoint')
-    train_logger = result['logger']
-    result = {'cfg': cfg, 'epoch': last_epoch, 'logger': {'train': train_logger, 'test': test_logger}}
+    train_logger = result['logger'] if 'logger' in result else None
+    result = {'cfg': cfg, 'iter': iter, 'epoch': last_epoch, 'data_separate': data_separate, 'mask': mask,
+              'data_split': data_split, 'target_split': target_split,
+              'logger': {'train': train_logger, 'test': test_logger}}
     save(result, './output/result/{}.pt'.format(cfg['model_tag']))
     return
 
 
-def test(dataset, model, metric, logger, epoch):
+def test(data_loader, model, metric, logger, epoch):
     with torch.no_grad():
         model.train(False)
-        data_loader = make_data_loader({'test': dataset}, 'global')['test']
         for i, input in enumerate(data_loader):
             input = collate(input)
             input_size = input['data'].size(0)
             input = to_device(input, cfg['device'])
             output = model(input)
             output['loss'] = output['loss'].mean() if cfg['world_size'] > 1 else output['loss']
-            evaluation = metric.evaluate(metric.metric_name['test']['Global'], input, output)
+            evaluation = metric.evaluate(metric.metric_name['test'], input, output)
             logger.append(evaluation, 'test', input_size)
         info = {'info': ['Model: {}'.format(cfg['model_tag']), 'Test Epoch: {}({:.0f}%)'.format(epoch, 100.)]}
         logger.append(info, 'test', mean=False)
-        print(logger.write('test', metric.metric_name['test']['Global']))
+        print(logger.write('test', metric.metric_name['test']))
     return
 
 
