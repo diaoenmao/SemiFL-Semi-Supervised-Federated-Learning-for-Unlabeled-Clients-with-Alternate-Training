@@ -141,43 +141,34 @@ def process_control():
         cfg['user']['weight_decay'] = 5e-4
         cfg['user']['nesterov'] = False
         cfg['user']['scheduler_name'] = 'None'
-        cfg['user']['num_epochs'] = 1
+        cfg['user']['num_epochs'] = 10
         cfg['user']['batch_size'] = {'train': 250, 'test': 500}
         cfg['global'] = {}
         cfg['global']['batch_size'] = {'train': 250, 'test': 500}
         cfg['global']['shuffle'] = {'train': True, 'test': False}
         if cfg['data_split_mode'] == 'iid':
-            cfg['global']['num_epochs'] = 400
+            cfg['global']['num_epochs'] = 10
         elif 'non-iid' in cfg['data_split_mode']:
-            cfg['global']['num_epochs'] = 800
+            cfg['global']['num_epochs'] = 20
         else:
             raise ValueError('Not valid data_split_mode')
+        cfg['linesearch'] = {}
+        cfg['linesearch']['optimizer_name'] = 'LBFGS'
+        cfg['linesearch']['lr'] = 1
+        cfg['linesearch']['num_epochs'] = 10
     else:
         model_name = cfg['model_name']
-        if cfg['user_data_name'] != 'none':
-            cfg[model_name]['shuffle'] = {'train': True, 'test': False}
-            cfg[model_name]['optimizer_name'] = 'SGD'
-            cfg[model_name]['lr'] = 1e-1
-            cfg[model_name]['momentum'] = 0.9
-            cfg[model_name]['weight_decay'] = 5e-4
-            cfg[model_name]['nesterov'] = False
-            cfg[model_name]['scheduler_name'] = 'CosineAnnealingLR'
-            cfg[model_name]['factor'] = 0.1
-            cfg[model_name]['milestones'] = [100, 200]
-            cfg[model_name]['num_epochs'] = 300
-            cfg[model_name]['batch_size'] = {'train': 250, 'test': 500}
-        else:
-            cfg[model_name]['shuffle'] = {'train': True, 'test': False}
-            cfg[model_name]['optimizer_name'] = 'SGD'
-            cfg[model_name]['lr'] = 1e-1
-            cfg[model_name]['momentum'] = 0.9
-            cfg[model_name]['weight_decay'] = 5e-4
-            cfg[model_name]['nesterov'] = False
-            cfg[model_name]['scheduler_name'] = 'CosineAnnealingLR'
-            cfg[model_name]['factor'] = 0.1
-            cfg[model_name]['milestones'] = [100, 200]
-            cfg[model_name]['num_epochs'] = 300
-            cfg[model_name]['batch_size'] = {'train': 250, 'test': 500}
+        cfg[model_name]['shuffle'] = {'train': True, 'test': False}
+        cfg[model_name]['optimizer_name'] = 'SGD'
+        cfg[model_name]['lr'] = 1e-1
+        cfg[model_name]['momentum'] = 0.9
+        cfg[model_name]['weight_decay'] = 5e-4
+        cfg[model_name]['nesterov'] = False
+        cfg[model_name]['scheduler_name'] = 'CosineAnnealingLR'
+        cfg[model_name]['factor'] = 0.1
+        cfg[model_name]['milestones'] = [100, 200]
+        cfg[model_name]['num_epochs'] = 300
+        cfg[model_name]['batch_size'] = {'train': 250, 'test': 500}
     return
 
 

@@ -7,7 +7,7 @@ control:
   num_supervised: '4000'
   user_data_name: 'CIFAR10'
   user_model_name: 'conv'
-  threshold: '0.3'
+  threshold: '0.95'
 # data
 data_name: CIFAR10
 # MNIST

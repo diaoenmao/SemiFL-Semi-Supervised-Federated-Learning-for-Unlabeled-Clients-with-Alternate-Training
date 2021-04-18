@@ -37,6 +37,11 @@ def main():
     for i in range(cfg['num_experiments']):
         model_tag_list = [str(seeds[i]), cfg['data_name'], cfg['model_name'], cfg['control_name']]
         cfg['model_tag'] = '_'.join([x for x in model_tag_list if x])
+        center_model_name = '1_1_none_{}_none_none_none'.format(cfg['num_supervised'])
+        center_model_tag_list = [str(seeds[i]), cfg['data_name'], cfg['model_name'], center_model_name]
+        cfg['center_model_tag'] = '_'.join([x for x in center_model_tag_list if x])
+        model_tag_list = [str(seeds[i]), cfg['data_name'], cfg['model_name'], cfg['control_name']]
+        cfg['model_tag'] = '_'.join([x for x in model_tag_list if x])
         print('Experiment: {}'.format(cfg['model_tag']))
         runExperiment()
     return
@@ -49,11 +54,15 @@ def runExperiment():
     center_dataset = fetch_dataset(cfg['data_name'])
     user_dataset = fetch_dataset(cfg['user_data_name'])
     process_dataset(center_dataset)
+    result = resume(cfg['center_model_tag'], load_tag='checkpoint')
+    data_separate = result['data_separate']
     center_dataset['train'], user_dataset['train'], data_separate = separate_dataset_cu(center_dataset['train'],
-                                                                                        user_dataset['train'])
+                                                                                        user_dataset['train'],
+                                                                                        data_separate)
     batchnorm_dataset = make_batchnorm_dataset_cu(center_dataset['train'], user_dataset['train'])
-    center = make_center(center_dataset)
+    center = make_center(center_dataset, batchnorm_dataset, result['model_state_dict'])
     data_split, target_split = split_dataset(user_dataset, cfg['num_users'], cfg['data_split_mode'])
+    user = make_user(user_dataset, data_split, center)
     if cfg['resume_mode'] == 1:
         result = resume(cfg['model_tag'])
         last_epoch = result['epoch']
@@ -68,14 +77,17 @@ def runExperiment():
         last_epoch = 1
         logger = make_logger('output/runs/train_{}'.format(cfg['model_tag']))
     metric = Metric({'train': ['Loss', 'Accuracy'], 'test': ['Loss', 'Accuracy']})
+    logger.safe(True)
+    center.test(metric, logger, 0)
+    logger.safe(False)
+    logger.reset()
     for epoch in range(last_epoch, cfg['global']['num_epochs'] + 1):
         logger.safe(True)
-        train_center(center, metric, logger)
-        user = make_user(user_dataset, data_split, center)
+        center.distribute(user)
         train_user(user, metric, logger, epoch)
         center.update(user)
-        center.make_batchnorm_stats(batchnorm_dataset)
-        test(center_dataset['test'], center, metric, logger, epoch)
+        center.search()
+        center.test(metric, logger, epoch)
         logger.safe(False)
         result = {'cfg': cfg, 'epoch': epoch + 1, 'data_split': data_split, 'target_split': target_split,
                   'center': center, 'logger': logger}
@@ -89,54 +101,44 @@ def runExperiment():
     return
 
 
-def make_center(center_dataset):
-    center = Center(center_dataset, cfg['model_name'], cfg['user_model_name'])
+def make_center(center_dataset, batchnorm_dataset, center_parameters):
+    center = Center(center_dataset, batchnorm_dataset, center_parameters, cfg['model_name'], cfg['user_model_name'])
     return center
 
 
-def train_center(center, metric, logger):
-    dataset = center.make_dataset()
-    center.train(dataset, metric, logger)
-    return
-
-
 def make_user(user_dataset, data_split, center):
-    num_active_users = int(np.ceil(cfg['active_rate'] * cfg['num_users']))
-    user_id = torch.arange(cfg['num_users'])[torch.randperm(cfg['num_users'])[:num_active_users]].tolist()
-    user = [None for _ in range(num_active_users)]
-    for m in range(num_active_users):
+    user_id = torch.arange(cfg['num_users'])
+    user = [None for _ in range(cfg['num_users'])]
+    for m in range(len(user)):
         user_dataset_m = {'train': separate_dataset(user_dataset['train'], data_split['train'][m])[0],
                           'test': separate_dataset(user_dataset['test'], data_split['test'][m])[0]}
         user[m] = User(user_id[m], user_dataset_m, cfg['threshold'], cfg['model_name'], cfg['user_model_name'])
-        center.distribute(user[m])
     return user
 
 
 def train_user(user, metric, logger, epoch):
-    num_active_users = len(user)
+    num_active_users = int(np.ceil(cfg['active_rate'] * cfg['num_users']))
+    user_id = torch.arange(cfg['num_users'])[torch.randperm(cfg['num_users'])[:num_active_users]].tolist()
+    num_active_users = len(user_id)
     start_time = time.time()
-    for m in range(num_active_users):
+    for i in range(num_active_users):
+        m = user_id[i]
         dataset = user[m].make_dataset()
         if dataset is not None:
             user[m].train(dataset, metric, logger)
-        if m % int((num_active_users * cfg['log_interval']) + 1) == 0:
-            _time = (time.time() - start_time) / (m + 1)
-            epoch_finished_time = datetime.timedelta(seconds=_time * (num_active_users - m - 1))
+        if i % int((num_active_users * cfg['log_interval']) + 1) == 0:
+            _time = (time.time() - start_time) / (i + 1)
+            epoch_finished_time = datetime.timedelta(seconds=_time * (num_active_users - i - 1))
             exp_finished_time = epoch_finished_time + datetime.timedelta(
                 seconds=round((cfg['global']['num_epochs'] - epoch) * _time * num_active_users))
-            exp_progress = 100. * m / num_active_users
+            exp_progress = 100. * i / num_active_users
             info = {'info': ['Model: {}'.format(cfg['model_tag']),
                              'User Train Epoch: {}({:.0f}%)'.format(epoch, exp_progress),
-                             'ID: {}({}/{})'.format(user[m].user_id, m + 1, num_active_users),
+                             'ID: {}({}/{})'.format(user[m].user_id, i + 1, num_active_users),
                              'Epoch Finished Time: {}'.format(epoch_finished_time),
                              'Experiment Finished Time: {}'.format(exp_finished_time)]}
             logger.append(info, 'train', mean=False)
             print(logger.write('train', metric.metric_name['train']))
-    return
-
-
-def test(dataset, center, metric, logger, epoch):
-    center.test(dataset, metric, logger, epoch)
     return
 
 

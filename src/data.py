@@ -170,7 +170,7 @@ def make_batchnorm_dataset_cu(center_dataset, user_dataset):
     return batchnorm_dataset
 
 
-def make_stats_batchnorm(dataset, model, tag):
+def make_batchnorm_stats(dataset, model, tag):
     import datasets
     with torch.no_grad():
         test_model = copy.deepcopy(model)

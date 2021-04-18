@@ -8,7 +8,7 @@ import time
 import torch
 import torch.backends.cudnn as cudnn
 from config import cfg
-from data import fetch_dataset, make_data_loader, separate_dataset, make_stats_batchnorm
+from data import fetch_dataset, make_data_loader, separate_dataset, make_batchnorm_stats
 from metrics import Metric
 from utils import save, to_device, process_control, process_dataset, make_optimizer, make_scheduler, resume, collate
 from logger import make_logger
@@ -70,11 +70,11 @@ def runExperiment():
     for epoch in range(last_epoch, cfg[cfg['model_name']]['num_epochs'] + 1):
         logger.safe(True)
         train(data_loader['train'], model, optimizer, metric, logger, epoch)
-        test_model = make_stats_batchnorm(dataset['train'], model, cfg['model_name'])
+        test_model = make_batchnorm_stats(dataset['train'], model, cfg['model_name'])
         test(data_loader['test'], test_model, metric, logger, epoch)
         scheduler.step()
         logger.safe(False)
-        model_state_dict = test_model.module.state_dict() if cfg['world_size'] > 1 else test_model.state_dict()
+        model_state_dict = model.module.state_dict() if cfg['world_size'] > 1 else model.state_dict()
         result = {'cfg': cfg, 'epoch': epoch + 1, 'data_separate': data_separate,
                   'model_state_dict': model_state_dict, 'optimizer_state_dict': optimizer.state_dict(),
                   'scheduler_state_dict': scheduler.state_dict(), 'logger': logger}

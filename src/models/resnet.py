@@ -85,8 +85,8 @@ class ResNet(nn.Module):
         out = self.linear(out)
         output['target'] = out
         output['loss'] = loss_fn(output['target'], input['target'])
-        if 'base' in input:
-            output['target'] = output['target'] + input['base']
+        if 'buffer' in input:
+            output['target'] = input['buffer'] + output['target']
         return output
 
 

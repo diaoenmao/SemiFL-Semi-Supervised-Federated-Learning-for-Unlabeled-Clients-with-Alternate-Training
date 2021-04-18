@@ -4,7 +4,7 @@ import torch
 import torch.backends.cudnn as cudnn
 import models
 from config import cfg
-from data import fetch_dataset, make_data_loader, separate_dataset, make_stats_batchnorm
+from data import fetch_dataset, make_data_loader, separate_dataset, make_batchnorm_stats
 from metrics import Metric
 from utils import save, to_device, process_control, process_dataset, resume, collate
 from logger import make_logger
@@ -54,8 +54,8 @@ def runExperiment():
     data_loader = make_data_loader(dataset, cfg['model_name'])
     test_logger = make_logger('output/runs/test_{}'.format(cfg['model_tag']))
     test_logger.safe(True)
-    model = make_stats_batchnorm(dataset['train'], model, cfg['model_name'])
-    test(data_loader['test'], model, metric, test_logger, last_epoch)
+    test_model = make_batchnorm_stats(dataset['train'], model, cfg['model_name'])
+    test(data_loader['test'], test_model, metric, test_logger, last_epoch)
     test_logger.safe(False)
     result = resume(cfg['model_tag'], load_tag='checkpoint')
     train_logger = result['logger'] if 'logger' in result else None
