@@ -109,7 +109,11 @@ def process_control():
     cfg['active_rate'] = float(cfg['control']['active_rate'])
     cfg['data_split_mode'] = cfg['control']['data_split_mode']
     cfg['num_supervised'] = int(cfg['control']['num_supervised'])
-    cfg['user_data_name'] = cfg['control']['user_data_name']
+    cfg['user_data_mode'] = cfg['control']['user_data_mode']
+    if cfg['user_data_mode'] != 'none':
+        user_data_name = {'r': {'CIFAR10': 'CIFAR10', 'CIFAR100': 'CIFAR100'},
+                          'ir': {'CIFAR10': 'CIFAR100', 'CIFAR100': 'CIFAR10'}}
+        cfg['user_data_name'] = user_data_name[cfg['user_data_mode']][cfg['data_name']]
     data_shape = {'MNIST': [1, 28, 28], 'CIFAR10': [3, 32, 32], 'CIFAR100': [3, 32, 32]}
     cfg['data_shape'] = data_shape[cfg['data_name']]
     cfg['conv'] = {'hidden_size': [64, 128, 256, 512]}
@@ -126,7 +130,10 @@ def process_control():
         cfg['center']['weight_decay'] = 5e-4
         cfg['center']['nesterov'] = False
         cfg['center']['num_epochs'] = 5
-        cfg['center']['batch_size'] = {'train': 250, 'test': 500}
+        if cfg['num_supervised'] > 1000:
+            cfg['center']['batch_size'] = {'train': 250, 'test': 500}
+        else:
+            cfg['center']['batch_size'] = {'train': 10, 'test': 500}
         cfg['user'] = {}
         cfg['user']['shuffle'] = {'train': True, 'test': False}
         cfg['user']['optimizer_name'] = 'SGD'
