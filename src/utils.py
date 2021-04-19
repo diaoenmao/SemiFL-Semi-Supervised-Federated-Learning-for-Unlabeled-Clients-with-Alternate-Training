@@ -143,9 +143,9 @@ def process_control():
         cfg['user']['nesterov'] = False
         cfg['user']['num_epochs'] = 5
         if cfg['num_users'] > 10:
-            cfg['user']['batch_size'] = {'train': 250, 'test': 500}
-        else:
             cfg['user']['batch_size'] = {'train': 10, 'test': 50}
+        else:
+            cfg['user']['batch_size'] = {'train': 250, 'test': 500}
         cfg['global'] = {}
         cfg['global']['batch_size'] = {'train': 250, 'test': 500}
         cfg['global']['shuffle'] = {'train': True, 'test': False}
@@ -156,7 +156,7 @@ def process_control():
             cfg['global']['num_epochs'] = 600
         else:
             raise ValueError('Not valid data_split_mode')
-        cfg['global']['teach_iter'] = 3
+        cfg['global']['teach_iter'] = 2
         threshold = float(cfg['control']['threshold'])
         # cfg['threshold'] = torch.linspace(threshold, 1 / cfg['target_size'] + 0.05, cfg['global']['teach_iter'])
         cfg['threshold'] = [threshold for _ in range(cfg['global']['teach_iter'])]

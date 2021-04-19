@@ -30,17 +30,23 @@ class Center:
 
     def update(self, user):
         with torch.no_grad():
+            valid_user = [user[i] for i in range(len(user)) if user[i].active and user[i].valid_data]
+            # num_data = [len(valid_user[i].user_dataset['train']) for i in range(len(valid_user))] + \
+            #            [len(self.center_dataset['train'])]
+            num_data = [1 for _ in range(len(valid_user) + 1)]
+            weight = torch.tensor(num_data).float().softmax(dim=-1)
             model = eval('models.{}().to(cfg["device"])'.format(cfg['model_name']))
             model.load_state_dict(self.model_state_dict)
             for k, v in model.named_parameters():
                 parameter_type = k.split('.')[-1]
                 if 'weight' in parameter_type or 'bias' in parameter_type:
-                    tmp_v = copy.deepcopy(v)
-                    for m in range(len(user)):
-                        tmp_v += user[m].model_state_dict[k]
-                    tmp_v = tmp_v / (len(user) + 1)
+                    tmp_v = weight[-1] * copy.deepcopy(v)
+                    for m in range(len(valid_user)):
+                        tmp_v += weight[m] * user[m].model_state_dict[k]
                     v.data = tmp_v.data
             self.model_state_dict = model.state_dict()
+            for i in range(len(user)):
+                user[i].active = False
         return
 
     def train(self, metric, logger):
@@ -82,7 +88,9 @@ class User:
         self.optimizer_state_dict = optimizer.state_dict()
         self.scheduler_state_dict = scheduler.state_dict()
         self.threshold = threshold
-        self.user_dataset['train'], self.mask = self.make_dataset(self.user_dataset['train'])
+        self.user_dataset['train'], self.mask, self.weight = self.make_dataset(self.user_dataset['train'])
+        self.valid_data = False if self.user_dataset['train'] is None else True
+        self.active = False
 
     def make_hard_pseudo_label(self, logits):
         soft_pseudo_label = F.softmax(logits, dim=-1)
@@ -111,27 +119,27 @@ class User:
             acc = Accuracy(output, target)
             new_target, mask = self.make_hard_pseudo_label(output)
             if torch.all(~mask):
-                raise ValueError('Not valid threshold')
+                return None, mask, None
             else:
                 new_acc = Accuracy(output[mask], target[mask])
                 num_labeled = int(mask.float().sum())
                 print('Accuracy: {:.3f} ({:.3f}), Number of Labeled: {}'.format(acc, new_acc, num_labeled))
                 dataset = copy.deepcopy(dataset)
                 dataset.target = new_target.tolist()
+                # dataset.target = output.tolist()
                 mask = mask.tolist()
                 dataset.data = list(compress(dataset.data, mask))
                 dataset.target = list(compress(dataset.target, mask))
                 dataset.other = {'id': list(range(len(dataset.data)))}
-                target = torch.tensor(dataset.target)
-                cls_indx, cls_counts = torch.unique(target, return_counts=True)
+                cls_indx, cls_counts = torch.unique(new_target, return_counts=True)
                 num_samples_per_cls = torch.zeros(cfg['target_size'], dtype=torch.float32)
                 num_samples_per_cls[cls_indx] = cls_counts.float()
                 beta = torch.tensor(0.999, dtype=torch.float32)
                 effective_num = 1.0 - beta.pow(num_samples_per_cls)
                 weight = (1.0 - beta) / effective_num
                 weight[torch.isinf(weight)] = 0
-                self.weight = weight / torch.sum(weight) * (weight > 0).float().sum()
-        return dataset, mask
+                weight = weight / torch.sum(weight) * (weight > 0).float().sum()
+        return dataset, mask, weight
 
     def train(self, metric, logger):
         data_loader = make_data_loader(self.user_dataset, 'user')['train']

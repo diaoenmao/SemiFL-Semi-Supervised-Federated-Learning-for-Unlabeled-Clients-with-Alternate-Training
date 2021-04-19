@@ -66,7 +66,7 @@ def runExperiment():
     logger = make_logger('output/runs/train_{}'.format(cfg['model_tag']))
     metric = Metric({'train': ['Loss', 'Accuracy'], 'test': ['Loss', 'Accuracy']})
     mask = []
-    for iter in range(1, cfg['global']['teach_iter'] + 1):
+    for iter in range(cfg['global']['teach_iter']):
         teacher_model = make_batchnorm_stats(batchnorm_dataset, teacher_model, 'center')
         test(data_loader['test'], teacher_model, metric, logger, 0)
         logger.reset()
@@ -138,7 +138,9 @@ def train_user(user, metric, logger, epoch):
     num_active_users = len(user_id)
     start_time = time.time()
     for i in range(num_active_users):
-        user[user_id[i]].train(metric, logger)
+        user[user_id[i]].active = True
+        if user[user_id[i]].valid_data:
+            user[user_id[i]].train(metric, logger)
         if i % int((num_active_users * cfg['log_interval']) + 1) == 0:
             _time = (time.time() - start_time) / (i + 1)
             lr = user[user_id[i]].optimizer_state_dict['param_groups'][0]['lr']
