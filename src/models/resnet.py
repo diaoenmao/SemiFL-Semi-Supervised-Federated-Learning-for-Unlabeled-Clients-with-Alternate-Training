@@ -96,11 +96,11 @@ class ResNet(nn.Module):
         return output
 
 
-def resnet18():
+def resnet18(track=False):
     data_shape = cfg['data_shape']
     target_size = cfg['target_size']
     hidden_size = cfg['resnet18']['hidden_size']
     model = ResNet(data_shape, hidden_size, Block, [2, 2, 2, 2], target_size)
     model.apply(init_param)
-    model.apply(lambda m: make_batchnorm(m, momentum=None, track_running_stats=False))
+    model.apply(lambda m: make_batchnorm(m, momentum=None, track_running_stats=track))
     return model
