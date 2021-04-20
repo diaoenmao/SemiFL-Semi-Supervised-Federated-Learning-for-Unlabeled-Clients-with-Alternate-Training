@@ -31,18 +31,17 @@ class Conv(nn.Module):
         output['target'] = self.f(input['data'])
         if 'weight' in input:
             uda_output = self.f(input['uda'])
-            output['loss'] = loss_fn(output['target'], input['target'], input['weight'])
-            output['loss'] += kld_loss(uda_output, output['target'].detach(), input['weight'])
+            output['loss'] = loss_fn(uda_output, input['target'].detach(), input['weight'])
         else:
             output['loss'] = loss_fn(output['target'], input['target'])
         return output
 
 
-def conv(track=False):
+def conv():
     data_shape = cfg['data_shape']
     hidden_size = cfg['conv']['hidden_size']
     target_size = cfg['target_size']
     model = Conv(data_shape, hidden_size, target_size)
     model.apply(init_param)
-    model.apply(lambda m: make_batchnorm(m, momentum=None, track_running_stats=track))
+    model.apply(lambda m: make_batchnorm(m, momentum=None, track_running_stats=False))
     return model

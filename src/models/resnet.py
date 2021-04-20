@@ -87,20 +87,18 @@ class ResNet(nn.Module):
         output = {}
         output['target'] = self.f(input['data'])
         if 'weight' in input:
-            output['loss'] = loss_fn(output['target'], input['target'], input['weight'])
+            uda_output = self.f(input['uda'])
+            output['loss'] = loss_fn(uda_output, input['target'].detach(), input['weight'])
         else:
             output['loss'] = loss_fn(output['target'], input['target'])
-        if 'uda' in input:
-            out = self.f(input['uda'])
-            output['loss'] = output['loss'] + kld_loss(out, output['target'].detach(), input['weight'], T=0.4)
         return output
 
 
-def resnet18(track=False):
+def resnet18():
     data_shape = cfg['data_shape']
     target_size = cfg['target_size']
     hidden_size = cfg['resnet18']['hidden_size']
     model = ResNet(data_shape, hidden_size, Block, [2, 2, 2, 2], target_size)
     model.apply(init_param)
-    model.apply(lambda m: make_batchnorm(m, momentum=None, track_running_stats=track))
+    model.apply(lambda m: make_batchnorm(m, momentum=None, track_running_stats=False))
     return model

@@ -59,47 +59,58 @@ def runExperiment():
                                                                                         data_separate)
     data_loader = make_data_loader(center_dataset, 'center')
     batchnorm_dataset = make_batchnorm_dataset_cu(center_dataset['train'], user_dataset['train'])
+    teacher_model = eval('models.{}().to(cfg["device"])'.format(cfg['model_name']))
+    teacher_model.load_state_dict(result['model_state_dict'])
     data_split, target_split = split_dataset(user_dataset, cfg['num_users'], cfg['data_split_mode'])
     last_epoch = 1
     logger = make_logger('output/runs/train_{}'.format(cfg['model_tag']))
     metric = Metric({'train': ['Loss', 'Accuracy'], 'test': ['Loss', 'Accuracy']})
-    model = eval('models.{}().to(cfg["device"])'.format(cfg['model_name']))
-    center = make_center(center_dataset, model)
-    user = make_user(user_dataset, data_split, model, cfg['threshold'])
-    for epoch in range(last_epoch, cfg['global']['num_epochs'] + 1):
-        center.distribute(user)
-        train_center(center, metric, logger, epoch)
+    mask = []
+    for iter in range(cfg['global']['teach_iter']):
+        teacher_model = make_batchnorm_stats(batchnorm_dataset, teacher_model, 'center')
+        test(data_loader['test'], teacher_model, metric, logger, 0)
         logger.reset()
-        train_user(user, metric, logger, epoch)
-        center.update(user)
-        model.load_state_dict(center.model_state_dict)
-        test_model = make_batchnorm_stats(batchnorm_dataset, model, 'center')
-        test(data_loader['test'], test_model, metric, logger, epoch)
-        model_state_dict = model.module.state_dict() if cfg['world_size'] > 1 else model.state_dict()
-        result = {'cfg': cfg, 'epoch': epoch + 1, 'model_state_dict': model_state_dict,
-                  'data_separate': data_separate, 'data_split': data_split,
-                  'target_split': target_split, 'logger': logger}
-        save(result, './output/model/{}_checkpoint.pt'.format(cfg['model_tag']))
-        if metric.compare(logger.mean['test/{}'.format(metric.pivot_name)]):
-            metric.update(logger.mean['test/{}'.format(metric.pivot_name)])
-            shutil.copy('./output/model/{}_checkpoint.pt'.format(cfg['model_tag']),
-                        './output/model/{}_best.pt'.format(cfg['model_tag']))
-        logger.reset()
+        model = eval('models.{}().to(cfg["device"])'.format(cfg['model_name']))
+        center = make_center(center_dataset, teacher_model, model)
+        user = make_user(user_dataset, data_split, teacher_model, model, cfg['threshold'][iter], mask)
+        for epoch in range(last_epoch, cfg['global']['num_epochs'] + 1):
+            center.distribute(user)
+            train_center(center, metric, logger, epoch)
+            logger.reset()
+            train_user(user, metric, logger, epoch)
+            center.update(user)
+            model.load_state_dict(center.model_state_dict)
+            test_model = make_batchnorm_stats(batchnorm_dataset, model, 'center')
+            test(data_loader['test'], test_model, metric, logger, epoch)
+            model_state_dict = model.module.state_dict() if cfg['world_size'] > 1 else model.state_dict()
+            result = {'cfg': cfg, 'iter': iter + 1, 'epoch': epoch + 1, 'model_state_dict': model_state_dict,
+                      'data_separate': data_separate, 'mask': mask, 'data_split': data_split,
+                      'target_split': target_split, 'logger': logger}
+            save(result, './output/model/{}_checkpoint.pt'.format(cfg['model_tag']))
+            if metric.compare(logger.mean['test/{}'.format(metric.pivot_name)]):
+                metric.update(logger.mean['test/{}'.format(metric.pivot_name)])
+                shutil.copy('./output/model/{}_checkpoint.pt'.format(cfg['model_tag']),
+                            './output/model/{}_best.pt'.format(cfg['model_tag']))
+            logger.reset()
+        teacher_model.load_state_dict(center.model_state_dict)
     return
 
 
-def make_center(center_dataset, model):
-    center = Center(center_dataset, model)
+def make_center(center_dataset, teacher_model, model):
+    center = Center(center_dataset, teacher_model, model)
     return center
 
 
-def make_user(user_dataset, data_split, model, threshold):
+def make_user(user_dataset, data_split, teacher_model, model, threshold, mask):
     user_id = torch.arange(cfg['num_users'])
     user = [None for _ in range(cfg['num_users'])]
+    _mask = []
     for m in range(len(user)):
         user_dataset_m = {'train': separate_dataset(user_dataset['train'], data_split['train'][m])[0],
                           'test': separate_dataset(user_dataset['test'], data_split['test'][m])[0]}
-        user[m] = User(user_id[m], user_dataset_m, model, threshold)
+        user[m] = User(user_id[m], user_dataset_m, teacher_model, model, threshold)
+        _mask.append(user[m].mask)
+    mask.append(_mask)
     return user
 
 
@@ -127,11 +138,9 @@ def train_user(user, metric, logger, epoch):
     num_active_users = len(user_id)
     start_time = time.time()
     for i in range(num_active_users):
-        dataset = user[user_id[i]].make_dataset()
-        if dataset is None:
-            continue
         user[user_id[i]].active = True
-        user[user_id[i]].train(dataset, metric, logger)
+        if user[user_id[i]].valid_data:
+            user[user_id[i]].train(metric, logger)
         if i % int((num_active_users * cfg['log_interval']) + 1) == 0:
             _time = (time.time() - start_time) / (i + 1)
             lr = user[user_id[i]].optimizer_state_dict['param_groups'][0]['lr']

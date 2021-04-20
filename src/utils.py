@@ -156,7 +156,10 @@ def process_control():
             cfg['global']['num_epochs'] = 600
         else:
             raise ValueError('Not valid data_split_mode')
-        cfg['threshold'] = float(cfg['control']['threshold'])
+        cfg['global']['teach_iter'] = 2
+        threshold = float(cfg['control']['threshold'])
+        # cfg['threshold'] = torch.linspace(threshold, 1 / cfg['target_size'] + 0.05, cfg['global']['teach_iter'])
+        cfg['threshold'] = [threshold for _ in range(cfg['global']['teach_iter'])]
     else:
         model_name = cfg['model_name']
         cfg[model_name]['shuffle'] = {'train': True, 'test': False}
