@@ -8,7 +8,7 @@ import torch.nn.functional as F
 import models
 from itertools import compress
 from config import cfg
-from data import make_data_loader, make_dataset_normal
+from data import make_data_loader, make_dataset_normal, make_batchnorm_stats
 from utils import to_device, make_optimizer, make_scheduler, collate
 from metrics import Accuracy
 
@@ -108,6 +108,7 @@ class Client:
             data_loader = make_data_loader({'train': dataset}, 'client', shuffle={'train': False})['train']
             model = eval('models.{}().to(cfg["device"])'.format(cfg['model_name']))
             model.load_state_dict(self.model_state_dict)
+            model = make_batchnorm_stats(dataset, model, 'server')
             model.train(False)
             output = []
             target = []

@@ -59,7 +59,7 @@ def runExperiment():
                                                                                           data_separate)
     data_loader = make_data_loader(server_dataset, 'server')
     teacher_model = eval('models.{}().to(cfg["device"])'.format(cfg['model_name']))
-    teacher_model.load_state_dict(result['model_state_dict'])
+    teacher_model.load_state_dict(result['model_state_dict'], strict=False)
     model = eval('models.{}().to(cfg["device"])'.format(cfg['model_name']))
     batchnorm_dataset = make_batchnorm_dataset_sc(server_dataset['train'], client_dataset['train'])
     data_split, _ = split_dataset(client_dataset, cfg['num_clients'], cfg['data_split_mode'])
