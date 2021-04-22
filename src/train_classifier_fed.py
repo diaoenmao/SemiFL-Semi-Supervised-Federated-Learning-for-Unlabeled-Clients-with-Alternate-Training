@@ -8,10 +8,10 @@ import torch
 import torch.backends.cudnn as cudnn
 import numpy as np
 from config import cfg
-from data import fetch_dataset, split_dataset, make_data_loader, separate_dataset, separate_dataset_cu, \
-    make_batchnorm_dataset_cu, make_batchnorm_stats
+from data import fetch_dataset, split_dataset, make_data_loader, separate_dataset, separate_dataset_sc, \
+    make_batchnorm_dataset_sc, make_batchnorm_stats
 from metrics import Metric
-from modules import Center, User
+from modules import Server, Client
 from utils import save, to_device, process_control, process_dataset, make_optimizer, make_scheduler, resume, collate
 from logger import make_logger
 
@@ -49,77 +49,80 @@ def runExperiment():
     cfg['seed'] = int(cfg['model_tag'].split('_')[0])
     torch.manual_seed(cfg['seed'])
     torch.cuda.manual_seed(cfg['seed'])
-    center_dataset = fetch_dataset(cfg['data_name'])
-    user_dataset = fetch_dataset(cfg['user_data_name'])
-    process_dataset(center_dataset)
+    server_dataset = fetch_dataset(cfg['data_name'])
+    client_dataset = fetch_dataset(cfg['client_data_name'])
+    process_dataset(server_dataset)
     result = resume(cfg['teacher_model_tag'], load_tag='checkpoint')
     data_separate = result['data_separate']
-    center_dataset['train'], user_dataset['train'], data_separate = separate_dataset_cu(center_dataset['train'],
-                                                                                        user_dataset['train'],
-                                                                                        data_separate)
-    data_loader = make_data_loader(center_dataset, 'center')
-    batchnorm_dataset = make_batchnorm_dataset_cu(center_dataset['train'], user_dataset['train'])
+    server_dataset['train'], client_dataset['train'], data_separate = separate_dataset_sc(server_dataset['train'],
+                                                                                          client_dataset['train'],
+                                                                                          data_separate)
+    data_loader = make_data_loader(server_dataset, 'server')
     teacher_model = eval('models.{}().to(cfg["device"])'.format(cfg['model_name']))
     teacher_model.load_state_dict(result['model_state_dict'])
-    data_split, target_split = split_dataset(user_dataset, cfg['num_users'], cfg['data_split_mode'])
-    last_epoch = 1
-    logger = make_logger('output/runs/train_{}'.format(cfg['model_tag']))
+    model = eval('models.{}().to(cfg["device"])'.format(cfg['model_name']))
+    batchnorm_dataset = make_batchnorm_dataset_sc(server_dataset['train'], client_dataset['train'])
+    data_split, _ = split_dataset(client_dataset, cfg['num_clients'], cfg['data_split_mode'])
     metric = Metric({'train': ['Loss', 'Accuracy'], 'test': ['Loss', 'Accuracy']})
-    mask = []
-    for iter in range(cfg['global']['teach_iter']):
-        teacher_model = make_batchnorm_stats(batchnorm_dataset, teacher_model, 'center')
-        test(data_loader['test'], teacher_model, metric, logger, 0)
+    if cfg['resume_mode'] == 1:
+        result = resume(cfg['model_tag'])
+        last_epoch = result['epoch']
+        if last_epoch > 1:
+            data_split = result['data_split']
+            server = result['server']
+            client = result['client']
+            logger = result['logger']
+        else:
+            server = make_server(model)
+            client = make_client(client_dataset['train'], teacher_model, data_split, cfg['threshold'])
+            logger = make_logger('output/runs/train_{}'.format(cfg['model_tag']))
+    else:
+        last_epoch = 1
+        server = make_server(model)
+        client = make_client(client_dataset['train'], teacher_model, data_split, cfg['threshold'])
+        logger = make_logger('output/runs/train_{}'.format(cfg['model_tag']))
+    for epoch in range(last_epoch, cfg['global']['num_epochs'] + 1):
+        server.distribute(client)
+        train_server(server_dataset['train'], server, metric, logger, epoch)
         logger.reset()
-        model = eval('models.{}().to(cfg["device"])'.format(cfg['model_name']))
-        center = make_center(center_dataset, teacher_model, model)
-        user = make_user(user_dataset, data_split, teacher_model, model, cfg['threshold'][iter], mask)
-        for epoch in range(last_epoch, cfg['global']['num_epochs'] + 1):
-            center.distribute(user)
-            train_center(center, metric, logger, epoch)
-            logger.reset()
-            train_user(user, metric, logger, epoch)
-            center.update(user)
-            model.load_state_dict(center.model_state_dict)
-            test_model = make_batchnorm_stats(batchnorm_dataset, model, 'center')
-            test(data_loader['test'], test_model, metric, logger, epoch)
-            model_state_dict = model.module.state_dict() if cfg['world_size'] > 1 else model.state_dict()
-            result = {'cfg': cfg, 'iter': iter + 1, 'epoch': epoch + 1, 'model_state_dict': model_state_dict,
-                      'data_separate': data_separate, 'mask': mask, 'data_split': data_split,
-                      'target_split': target_split, 'logger': logger}
-            save(result, './output/model/{}_checkpoint.pt'.format(cfg['model_tag']))
-            if metric.compare(logger.mean['test/{}'.format(metric.pivot_name)]):
-                metric.update(logger.mean['test/{}'.format(metric.pivot_name)])
-                shutil.copy('./output/model/{}_checkpoint.pt'.format(cfg['model_tag']),
-                            './output/model/{}_best.pt'.format(cfg['model_tag']))
-            logger.reset()
-        teacher_model.load_state_dict(center.model_state_dict)
+        train_client(client_dataset['train'], client, metric, logger, epoch)
+        server.update(client)
+        model.load_state_dict(server.model_state_dict)
+        test_model = make_batchnorm_stats(batchnorm_dataset, model, 'server')
+        test(data_loader['test'], test_model, metric, logger, epoch)
+        result = {'cfg': cfg, 'epoch': epoch + 1, 'server': server, 'client': client,
+                  'data_separate': data_separate, 'data_split': data_split, 'logger': logger}
+        save(result, './output/model/{}_checkpoint.pt'.format(cfg['model_tag']))
+        if metric.compare(logger.mean['test/{}'.format(metric.pivot_name)]):
+            metric.update(logger.mean['test/{}'.format(metric.pivot_name)])
+            shutil.copy('./output/model/{}_checkpoint.pt'.format(cfg['model_tag']),
+                        './output/model/{}_best.pt'.format(cfg['model_tag']))
+        logger.reset()
     return
 
 
-def make_center(center_dataset, teacher_model, model):
-    center = Center(center_dataset, teacher_model, model)
-    return center
+def make_server(model):
+    server = Server(model)
+    return server
 
 
-def make_user(user_dataset, data_split, teacher_model, model, threshold, mask):
-    user_id = torch.arange(cfg['num_users'])
-    user = [None for _ in range(cfg['num_users'])]
-    _mask = []
-    for m in range(len(user)):
-        user_dataset_m = {'train': separate_dataset(user_dataset['train'], data_split['train'][m])[0],
-                          'test': separate_dataset(user_dataset['test'], data_split['test'][m])[0]}
-        user[m] = User(user_id[m], user_dataset_m, teacher_model, model, threshold)
-        _mask.append(user[m].mask)
-    mask.append(_mask)
-    return user
+def make_client(dataset, teacher_model, data_split, threshold):
+    client_id = torch.arange(cfg['num_clients'])
+    client = [None for _ in range(cfg['num_clients'])]
+    for m in range(len(client)):
+        client[m] = Client(client_id[m], teacher_model,
+                           {'train': data_split['train'][m], 'test': data_split['test'][m]}, threshold)
+        dataset_m = separate_dataset(dataset, data_split['train'][m])[0]
+        client[m].make_dataset(dataset_m)
+    return client
 
 
-def train_center(center, metric, logger, epoch):
+def train_server(dataset, server, metric, logger, epoch):
     logger.safe(True)
     start_time = time.time()
-    center.train(metric, logger)
+    server.train(dataset, metric, logger)
     _time = (time.time() - start_time)
-    lr = center.optimizer_state_dict['param_groups'][0]['lr']
+    lr = server.optimizer_state_dict['param_groups'][0]['lr']
     epoch_finished_time = datetime.timedelta(seconds=round((cfg['global']['num_epochs'] - epoch) * _time))
     info = {'info': ['Model: {}'.format(cfg['model_tag']),
                      'Train Epoch (C): {}({:.0f}%)'.format(epoch, 100.),
@@ -131,27 +134,30 @@ def train_center(center, metric, logger, epoch):
     return
 
 
-def train_user(user, metric, logger, epoch):
+def train_client(dataset, client, metric, logger, epoch):
     logger.safe(True)
-    num_active_users = int(np.ceil(cfg['active_rate'] * cfg['num_users']))
-    user_id = torch.arange(cfg['num_users'])[torch.randperm(cfg['num_users'])[:num_active_users]].tolist()
-    num_active_users = len(user_id)
+    num_active_clients = int(np.ceil(cfg['active_rate'] * cfg['num_clients']))
+    client_id = torch.arange(cfg['num_clients'])[torch.randperm(cfg['num_clients'])[:num_active_clients]].tolist()
+    num_active_clients = len(client_id)
     start_time = time.time()
-    for i in range(num_active_users):
-        user[user_id[i]].active = True
-        if user[user_id[i]].valid_data:
-            user[user_id[i]].train(metric, logger)
-        if i % int((num_active_users * cfg['log_interval']) + 1) == 0:
+    for i in range(num_active_clients):
+        m = client_id[i]
+        dataset_m = separate_dataset(dataset, client[m].data_split['train'])[0]
+        dataset_m = client[m].make_dataset(dataset_m)
+        if dataset_m is not None:
+            client[m].active = True
+            client[m].train(dataset_m, metric, logger)
+        if i % int((num_active_clients * cfg['log_interval']) + 1) == 0:
             _time = (time.time() - start_time) / (i + 1)
-            lr = user[user_id[i]].optimizer_state_dict['param_groups'][0]['lr']
-            epoch_finished_time = datetime.timedelta(seconds=_time * (num_active_users - i - 1))
+            lr = client[client_id[i]].optimizer_state_dict['param_groups'][0]['lr']
+            epoch_finished_time = datetime.timedelta(seconds=_time * (num_active_clients - i - 1))
             exp_finished_time = epoch_finished_time + datetime.timedelta(
-                seconds=round((cfg['global']['num_epochs'] - epoch) * _time * num_active_users))
-            exp_progress = 100. * i / num_active_users
+                seconds=round((cfg['global']['num_epochs'] - epoch) * _time * num_active_clients))
+            exp_progress = 100. * i / num_active_clients
             info = {'info': ['Model: {}'.format(cfg['model_tag']),
                              'Train Epoch (U): {}({:.0f}%)'.format(epoch, exp_progress),
                              'Learning rate: {:.6f}'.format(lr),
-                             'ID: {}({}/{})'.format(user_id[i], i + 1, num_active_users),
+                             'ID: {}({}/{})'.format(client_id[i], i + 1, num_active_clients),
                              'Epoch Finished Time: {}'.format(epoch_finished_time),
                              'Experiment Finished Time: {}'.format(exp_finished_time)]}
             logger.append(info, 'train', mean=False)

@@ -142,21 +142,21 @@ def separate_dataset(dataset, data_separate=None):
     return separated_dataset, data_separate
 
 
-def separate_dataset_cu(center_dataset, user_dataset, data_separate=None):
+def separate_dataset_sc(center_dataset, user_dataset, data_separate=None):
     idx = list(range(len(center_dataset)))
     center_dataset, data_separate = separate_dataset(center_dataset, data_separate)
-    if cfg['data_name'] == cfg['user_data_name']:
+    if cfg['data_name'] == cfg['client_data_name']:
         data_unseparate = torch.tensor(list(set(idx) - set(data_separate.tolist())))
         data_unseparate, _ = torch.sort(data_unseparate)
         user_dataset, _ = separate_dataset(user_dataset, data_unseparate)
-    transform = TransformUDA(*data_stats[cfg['user_data_name']])
+    transform = TransformUDA(*data_stats[cfg['client_data_name']])
     user_dataset.transform = transform
     return center_dataset, user_dataset, data_separate
 
 
-def make_batchnorm_dataset_cu(center_dataset, user_dataset):
+def make_batchnorm_dataset_sc(center_dataset, user_dataset):
     batchnorm_dataset = copy.deepcopy(center_dataset)
-    if cfg['data_name'] == cfg['user_data_name']:
+    if cfg['data_name'] == cfg['client_data_name']:
         batchnorm_dataset.data = batchnorm_dataset.data + user_dataset.data
         batchnorm_dataset.target = batchnorm_dataset.target + user_dataset.target
         batchnorm_dataset.other['id'] = batchnorm_dataset.other['id'] + user_dataset.other['id']

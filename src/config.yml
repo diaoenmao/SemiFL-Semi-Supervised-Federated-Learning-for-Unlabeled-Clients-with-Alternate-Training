@@ -1,11 +1,11 @@
 ---
 # control
 control:
-  num_users: '1'
+  num_clients: '1'
   active_rate: '1'
   data_split_mode: 'iid'
   num_supervised: '4000'
-  user_data_mode: 'r'
+  client_data_mode: 'r'
   threshold: '0.95'
 # data
 data_name: CIFAR10

@@ -17,7 +17,7 @@ if __name__ == "__main__":
             dataset = fetch_dataset(data_name)
             dataset['train'].transform=datasets.Compose([transforms.ToTensor()])
             process_dataset(dataset)
-            data_loader = make_data_loader(dataset, 'center')
+            data_loader = make_data_loader(dataset, 'server')
             stats = Stats(dim=dim)
             for i, input in enumerate(data_loader['train']):
                 input = collate(input)

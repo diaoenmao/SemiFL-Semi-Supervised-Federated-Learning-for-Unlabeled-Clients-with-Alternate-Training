@@ -105,15 +105,15 @@ def process_dataset(dataset):
 
 
 def process_control():
-    cfg['num_users'] = int(cfg['control']['num_users'])
+    cfg['num_clients'] = int(cfg['control']['num_clients'])
     cfg['active_rate'] = float(cfg['control']['active_rate'])
     cfg['data_split_mode'] = cfg['control']['data_split_mode']
     cfg['num_supervised'] = int(cfg['control']['num_supervised'])
-    cfg['user_data_mode'] = cfg['control']['user_data_mode']
-    if cfg['user_data_mode'] != 'none':
-        user_data_name = {'r': {'CIFAR10': 'CIFAR10', 'CIFAR100': 'CIFAR100'},
+    cfg['client_data_mode'] = cfg['control']['client_data_mode']
+    if cfg['client_data_mode'] != 'none':
+        client_data_name = {'r': {'CIFAR10': 'CIFAR10', 'CIFAR100': 'CIFAR100'},
                           'ir': {'CIFAR10': 'CIFAR100', 'CIFAR100': 'CIFAR10'}}
-        cfg['user_data_name'] = user_data_name[cfg['user_data_mode']][cfg['data_name']]
+        cfg['client_data_name'] = client_data_name[cfg['client_data_mode']][cfg['data_name']]
     data_shape = {'MNIST': [1, 28, 28], 'CIFAR10': [3, 32, 32], 'CIFAR100': [3, 32, 32]}
     cfg['data_shape'] = data_shape[cfg['data_name']]
     cfg['conv'] = {'hidden_size': [64, 128, 256, 512]}
@@ -122,30 +122,30 @@ def process_control():
     cfg['wresnet28x8'] = {'depth': 28, 'widen_factor': 8, 'drop_rate': 0.0}
     cfg['wresnet37x2'] = {'depth': 37, 'widen_factor': 2, 'drop_rate': 0.0}
     if cfg['data_split_mode'] in ['iid'] or 'non-iid' in cfg['data_split_mode']:
-        cfg['center'] = {}
-        cfg['center']['shuffle'] = {'train': True, 'test': False}
-        cfg['center']['optimizer_name'] = 'SGD'
-        cfg['center']['lr'] = 1e-1
-        cfg['center']['momentum'] = 0.9
-        cfg['center']['weight_decay'] = 5e-4
-        cfg['center']['nesterov'] = False
-        cfg['center']['num_epochs'] = 5
+        cfg['server'] = {}
+        cfg['server']['shuffle'] = {'train': True, 'test': False}
+        cfg['server']['optimizer_name'] = 'SGD'
+        cfg['server']['lr'] = 1e-1
+        cfg['server']['momentum'] = 0.9
+        cfg['server']['weight_decay'] = 5e-4
+        cfg['server']['nesterov'] = False
+        cfg['server']['num_epochs'] = 5
         if cfg['num_supervised'] > 1000:
-            cfg['center']['batch_size'] = {'train': 250, 'test': 500}
+            cfg['server']['batch_size'] = {'train': 250, 'test': 500}
         else:
-            cfg['center']['batch_size'] = {'train': 10, 'test': 500}
-        cfg['user'] = {}
-        cfg['user']['shuffle'] = {'train': True, 'test': False}
-        cfg['user']['optimizer_name'] = 'SGD'
-        cfg['user']['lr'] = 1e-1
-        cfg['user']['momentum'] = 0.9
-        cfg['user']['weight_decay'] = 5e-4
-        cfg['user']['nesterov'] = False
-        cfg['user']['num_epochs'] = 5
-        if cfg['num_users'] > 10:
-            cfg['user']['batch_size'] = {'train': 10, 'test': 50}
+            cfg['server']['batch_size'] = {'train': 10, 'test': 500}
+        cfg['client'] = {}
+        cfg['client']['shuffle'] = {'train': True, 'test': False}
+        cfg['client']['optimizer_name'] = 'SGD'
+        cfg['client']['lr'] = 1e-1
+        cfg['client']['momentum'] = 0.9
+        cfg['client']['weight_decay'] = 5e-4
+        cfg['client']['nesterov'] = False
+        cfg['client']['num_epochs'] = 5
+        if cfg['num_clients'] > 10:
+            cfg['client']['batch_size'] = {'train': 10, 'test': 50}
         else:
-            cfg['user']['batch_size'] = {'train': 250, 'test': 500}
+            cfg['client']['batch_size'] = {'train': 250, 'test': 500}
         cfg['global'] = {}
         cfg['global']['batch_size'] = {'train': 250, 'test': 500}
         cfg['global']['shuffle'] = {'train': True, 'test': False}
@@ -156,10 +156,7 @@ def process_control():
             cfg['global']['num_epochs'] = 600
         else:
             raise ValueError('Not valid data_split_mode')
-        cfg['global']['teach_iter'] = 2
-        threshold = float(cfg['control']['threshold'])
-        # cfg['threshold'] = torch.linspace(threshold, 1 / cfg['target_size'] + 0.05, cfg['global']['teach_iter'])
-        cfg['threshold'] = [threshold for _ in range(cfg['global']['teach_iter'])]
+        cfg['threshold'] = float(cfg['control']['threshold'])
     else:
         model_name = cfg['model_name']
         cfg[model_name]['shuffle'] = {'train': True, 'test': False}

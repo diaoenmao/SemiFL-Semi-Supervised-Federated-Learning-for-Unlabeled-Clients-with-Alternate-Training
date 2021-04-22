@@ -18,7 +18,14 @@ def make_batchnorm(m, momentum, track_running_stats):
     if isinstance(m, nn.BatchNorm2d):
         m.momentum = momentum
         m.track_running_stats = track_running_stats
-        m.reset_running_stats()
+        if track_running_stats:
+            m.register_buffer('running_mean', torch.zeros(m.num_features, device=m.weight.device))
+            m.register_buffer('running_var', torch.ones(m.num_features, device=m.weight.device))
+            m.register_buffer('num_batches_tracked', torch.tensor(0, dtype=torch.long, device=m.weight.device))
+        else:
+            m.running_mean = None
+            m.running_var = None
+            m.num_batches_tracked = None
     return m
 
 
