@@ -37,11 +37,11 @@ class Conv(nn.Module):
         return output
 
 
-def conv():
+def conv(track=False):
     data_shape = cfg['data_shape']
     hidden_size = cfg['conv']['hidden_size']
     target_size = cfg['target_size']
     model = Conv(data_shape, hidden_size, target_size)
     model.apply(init_param)
-    model.apply(lambda m: make_batchnorm(m, momentum=None, track_running_stats=False))
+    model.apply(lambda m: make_batchnorm(m, momentum=None, track_running_stats=track))
     return model

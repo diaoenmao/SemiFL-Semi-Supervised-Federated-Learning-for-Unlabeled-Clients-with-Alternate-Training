@@ -58,8 +58,6 @@ def runExperiment():
                                                                                           client_dataset['train'],
                                                                                           data_separate)
     data_loader = make_data_loader(server_dataset, 'server')
-    teacher_model = eval('models.{}().to(cfg["device"])'.format(cfg['model_name']))
-    teacher_model.load_state_dict(result['model_state_dict'], strict=False)
     model = eval('models.{}().to(cfg["device"])'.format(cfg['model_name']))
     batchnorm_dataset = make_batchnorm_dataset_sc(server_dataset['train'], client_dataset['train'])
     data_split, _ = split_dataset(client_dataset, cfg['num_clients'], cfg['data_split_mode'])
@@ -74,19 +72,19 @@ def runExperiment():
             logger = result['logger']
         else:
             server = make_server(model)
-            client = make_client(client_dataset['train'], teacher_model, data_split, cfg['threshold'])
+            client = make_client(model, data_split, cfg['threshold'])
             logger = make_logger('output/runs/train_{}'.format(cfg['model_tag']))
     else:
         last_epoch = 1
         server = make_server(model)
-        client = make_client(client_dataset['train'], teacher_model, data_split, cfg['threshold'])
+        client = make_client(model, data_split, cfg['threshold'])
         logger = make_logger('output/runs/train_{}'.format(cfg['model_tag']))
     for epoch in range(last_epoch, cfg['global']['num_epochs'] + 1):
-        server.distribute(client)
-        train_server(server_dataset['train'], server, metric, logger, epoch)
-        logger.reset()
+        server.distribute(server_dataset['train'], client)
         train_client(client_dataset['train'], client, metric, logger, epoch)
+        logger.reset()
         server.update(client)
+        train_server(server_dataset['train'], server, metric, logger, epoch)
         model.load_state_dict(server.model_state_dict)
         test_model = make_batchnorm_stats(batchnorm_dataset, model, 'server')
         test(data_loader['test'], test_model, metric, logger, epoch)
@@ -106,14 +104,12 @@ def make_server(model):
     return server
 
 
-def make_client(dataset, teacher_model, data_split, threshold):
+def make_client(teacher_model, data_split, threshold):
     client_id = torch.arange(cfg['num_clients'])
     client = [None for _ in range(cfg['num_clients'])]
     for m in range(len(client)):
         client[m] = Client(client_id[m], teacher_model,
                            {'train': data_split['train'][m], 'test': data_split['test'][m]}, threshold)
-        dataset_m = separate_dataset(dataset, data_split['train'][m])[0]
-        client[m].make_dataset(dataset_m)
     return client
 
 
@@ -125,7 +121,7 @@ def train_server(dataset, server, metric, logger, epoch):
     lr = server.optimizer_state_dict['param_groups'][0]['lr']
     epoch_finished_time = datetime.timedelta(seconds=round((cfg['global']['num_epochs'] - epoch) * _time))
     info = {'info': ['Model: {}'.format(cfg['model_tag']),
-                     'Train Epoch (C): {}({:.0f}%)'.format(epoch, 100.),
+                     'Train Epoch (S): {}({:.0f}%)'.format(epoch, 100.),
                      'Learning rate: {:.6f}'.format(lr),
                      'Epoch Finished Time: {}'.format(epoch_finished_time)]}
     logger.append(info, 'train', mean=False)
@@ -155,7 +151,7 @@ def train_client(dataset, client, metric, logger, epoch):
                 seconds=round((cfg['global']['num_epochs'] - epoch) * _time * num_active_clients))
             exp_progress = 100. * i / num_active_clients
             info = {'info': ['Model: {}'.format(cfg['model_tag']),
-                             'Train Epoch (U): {}({:.0f}%)'.format(epoch, exp_progress),
+                             'Train Epoch (C): {}({:.0f}%)'.format(epoch, exp_progress),
                              'Learning rate: {:.6f}'.format(lr),
                              'ID: {}({}/{})'.format(client_id[i], i + 1, num_active_clients),
                              'Epoch Finished Time: {}'.format(epoch_finished_time),

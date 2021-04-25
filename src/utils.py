@@ -150,12 +150,10 @@ def process_control():
         cfg['global']['batch_size'] = {'train': 250, 'test': 500}
         cfg['global']['shuffle'] = {'train': True, 'test': False}
         cfg['global']['scheduler_name'] = 'CosineAnnealingLR'
-        if cfg['data_split_mode'] == 'iid':
-            cfg['global']['num_epochs'] = 300
-        elif 'non-iid' in cfg['data_split_mode']:
+        if cfg['num_clients'] > 10:
             cfg['global']['num_epochs'] = 600
         else:
-            raise ValueError('Not valid data_split_mode')
+            cfg['global']['num_epochs'] = 300
         cfg['threshold'] = float(cfg['control']['threshold'])
     else:
         model_name = cfg['model_name']

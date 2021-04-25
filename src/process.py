@@ -11,8 +11,10 @@ from collections import defaultdict
 
 result_path = './output/result'
 vis_path = './output/vis'
-num_experiments = 4
+num_experiments = 1
 exp = [str(x) for x in list(range(num_experiments))]
+fontsize = 16
+save_format = 'png'
 
 
 def make_controls(data_names, model_names, control_name):
@@ -24,38 +26,69 @@ def make_controls(data_names, model_names, control_name):
     return controls
 
 
-def make_control_list(model_name):
-    model_names = [[model_name]]
-    if model_name in ['linear', 'mlp']:
-        local_epoch = ['100']
-        data_names = [['Blob', 'Diabetes', 'Iris', 'BostonHousing', 'Wine', 'BreastCancer', 'QSAR']]
-        control_name = [[['1'], ['none'], local_epoch, ['10']]]
-        control_1 = make_controls(data_names, model_names, control_name)
-        data_names = [['Blob', 'Diabetes', 'Iris', 'BostonHousing', 'Wine', 'BreastCancer', 'QSAR']]
-        control_name = [[['2', '4'], ['none', 'bag', 'stack'], local_epoch, ['10']]]
-        control_2_4 = make_controls(data_names, model_names, control_name)
-        data_names = [['Blob', 'Diabetes', 'BostonHousing', 'Wine', 'BreastCancer', 'QSAR']]
-        control_name = [[['8'], ['none', 'bag', 'stack'], local_epoch, ['10']]]
-        control_8 = make_controls(data_names, model_names, control_name)
-        controls = control_1 + control_2_4 + control_8
-    elif model_name in ['conv']:
-        local_epoch = ['10']
-        data_names = [['MNIST', 'CIFAR10']]
-        control_name = [[['1'], ['none'], local_epoch, ['10']]]
-        control_1 = make_controls(data_names, model_names, control_name)
-        data_names = [['MNIST', 'CIFAR10']]
-        control_name = [[['2', '4', '8'], ['none', 'bag', 'stack'], local_epoch, ['10']]]
-        control_2_4_8 = make_controls(data_names, model_names, control_name)
-        controls = control_1 + control_2_4_8
+def make_control_list(file):
+    if file == 'all':
+        control_name = [[['1'], ['1'], ['none'], ['-1'], ['none'], ['none']]]
+        data_names = [['CIFAR10']]
+        model_names = [['wresnet28x2']]
+        cifar10_controls = make_controls(data_names, model_names, control_name)
+        data_names = [['CIFAR100']]
+        model_names = [['wresnet28x8']]
+        cifar100_controls = make_controls(data_names, model_names, control_name)
+        controls = cifar10_controls + cifar100_controls
+    elif file == 't':
+        control_name = [[['1'], ['1'], ['none'], ['250', '4000'], ['none'], ['none']]]
+        data_names = [['CIFAR10']]
+        model_names = [['wresnet28x2']]
+        cifar10_controls = make_controls(data_names, model_names, control_name)
+        control_name = [[['1'], ['1'], ['none'], ['2500', '10000'], ['none'], ['none']]]
+        data_names = [['CIFAR100']]
+        model_names = [['wresnet28x8']]
+        cifar100_controls = make_controls(data_names, model_names, control_name)
+        controls = cifar10_controls + cifar100_controls
+    elif file == 'ts':
+        control_name = [[['1'], ['1'], ['iid'], ['250', '4000'], ['r'], ['0.95']]]
+        data_names = [['CIFAR10']]
+        model_names = [['wresnet28x2']]
+        cifar10_controls = make_controls(data_names, model_names, control_name)
+        control_name = [[['1'], ['1'], ['iid'], ['2500', '10000'], ['r'], ['0.95']]]
+        data_names = [['CIFAR100']]
+        model_names = [['wresnet28x8']]
+        cifar100_controls = make_controls(data_names, model_names, control_name)
+        controls = cifar10_controls + cifar100_controls
+    elif file == 'silo':
+        control_name = [[['10'], ['1'], ['iid', 'non-iid-2'], ['250', '4000'], ['r'], ['0.95']]]
+        data_names = [['CIFAR10']]
+        model_names = [['wresnet28x2']]
+        cifar10_controls = make_controls(data_names, model_names, control_name)
+        control_name = [[['10'], ['1'], ['iid'], ['2500', '10000'], ['r'], ['0.95']]]
+        data_names = [['CIFAR100']]
+        model_names = [['wresnet28x8']]
+        cifar100_controls = make_controls(data_names, model_names, control_name)
+        controls = cifar10_controls + cifar100_controls
+    elif file == 'device':
+        control_name = [[['100'], ['0.1'], ['iid', 'non-iid-2'], ['250', '4000'], ['r'], ['0.95']]]
+        data_names = [['CIFAR10']]
+        model_names = [['wresnet28x2']]
+        cifar10_controls = make_controls(data_names, model_names, control_name)
+        control_name = [[['100'], ['0.1'], ['iid', 'non-iid-2'], ['2500', '10000'], ['r'], ['0.95']]]
+        data_names = [['CIFAR100']]
+        model_names = [['wresnet28x8']]
+        cifar100_controls = make_controls(data_names, model_names, control_name)
+        controls = cifar10_controls + cifar100_controls
     else:
-        raise ValueError('Not valid model name')
+        raise ValueError('Not valid file')
     return controls
 
 
 def main():
-    linear_control_list = make_control_list('linear')
-    conv_control_list = make_control_list('conv')
-    controls = linear_control_list + conv_control_list
+    # all_control_list = make_control_list('all')
+    # t_control_list = make_control_list('t')
+    ts_control_list = make_control_list('ts')
+    silo_control_list = make_control_list('silo')
+    device_control_list = make_control_list('device')
+    # controls = all_control_list + t_control_list + ts_control_list + silo_control_list + device_control_list
+    controls = ts_control_list + silo_control_list + device_control_list
     processed_result_exp, processed_result_history = process_result(controls)
     with open('{}/processed_result_exp.json'.format(result_path), 'w') as fp:
         json.dump(processed_result_exp, fp, indent=2)
@@ -67,7 +100,8 @@ def main():
     extract_processed_result(extracted_processed_result_history, processed_result_history, [])
     df_exp = make_df_exp(extracted_processed_result_exp)
     df_history = make_df_history(extracted_processed_result_history)
-    make_vis(df_history)
+    # make_vis(df_history)
+    make_lc(df_history)
     return
 
 
@@ -87,25 +121,13 @@ def extract_result(control, model_tag, processed_result_exp, processed_result_hi
         base_result_path_i = os.path.join(result_path, '{}.pt'.format(model_tag))
         if os.path.exists(base_result_path_i):
             base_result = load(base_result_path_i)
-            for k in base_result['logger']['test'].history:
+            for k in base_result['logger']['test'].mean:
                 metric_name = k.split('/')[1]
                 if metric_name not in processed_result_exp:
                     processed_result_exp[metric_name] = {'exp': [None for _ in range(num_experiments)]}
                     processed_result_history[metric_name] = {'history': [None for _ in range(num_experiments)]}
-                if metric_name in ['Loss', 'RMSE']:
-                    processed_result_exp[metric_name]['exp'][exp_idx] = min(base_result['logger']['test'].history[k])
-                else:
-                    processed_result_exp[metric_name]['exp'][exp_idx] = max(base_result['logger']['test'].history[k])
-                processed_result_history[metric_name]['history'][exp_idx] = base_result['logger']['test'].history[k]
-            if 'Assist-Rate' not in processed_result_history:
-                processed_result_history['Assist-Rate'] = {'history': [None for _ in range(num_experiments)]}
-            processed_result_history['Assist-Rate']['history'][exp_idx] = base_result['assist'].assist_rates[1:]
-            if base_result['assist'].assist_parameters[1] is not None:
-                if 'Assist-Parameters' not in processed_result_history:
-                    processed_result_history['Assist-Parameters'] = {'history': [None for _ in range(num_experiments)]}
-                processed_result_history['Assist-Parameters']['history'][exp_idx] = [
-                    base_result['assist'].assist_parameters[i]['stack'].softmax(dim=-1).numpy() for i in
-                    range(1, len(base_result['assist'].assist_parameters))]
+                    processed_result_exp[metric_name]['exp'][exp_idx] = base_result['logger']['test'].mean[k]
+                processed_result_history[metric_name]['history'][exp_idx] = base_result['logger']['train'].history[k]
         else:
             print('Missing {}'.format(base_result_path_i))
     else:
@@ -163,9 +185,9 @@ def make_df_exp(extracted_processed_result_exp):
     df = defaultdict(list)
     for exp_name in extracted_processed_result_exp:
         control = exp_name.split('_')
-        data_name, model_name, num_users, assist_mode, local_epoch, global_epoch = control
-        index_name = ['_'.join([local_epoch, assist_mode])]
-        df_name = '_'.join([data_name, model_name, num_users, global_epoch])
+        data_name, model_name, num_clients, active_rate, data_split_mode, num_supervised, client_data_mode, threshold = control
+        index_name = ['_'.join([active_rate, data_split_mode, num_supervised, client_data_mode, threshold])]
+        df_name = '_'.join([data_name, model_name, num_clients])
         df[df_name].append(pd.DataFrame(data=extracted_processed_result_exp[exp_name], index=index_name))
     startrow = 0
     writer = pd.ExcelWriter('{}/result_exp.xlsx'.format(result_path), engine='xlsxwriter')
@@ -182,10 +204,10 @@ def make_df_history(extracted_processed_result_history):
     df = defaultdict(list)
     for exp_name in extracted_processed_result_history:
         control = exp_name.split('_')
-        data_name, model_name, num_users, assist_mode, local_epoch, global_epoch = control
-        index_name = ['_'.join([local_epoch, assist_mode])]
+        data_name, model_name, num_clients, active_rate, data_split_mode, num_supervised, client_data_mode, threshold = control
+        index_name = ['_'.join([active_rate, data_split_mode, num_supervised, client_data_mode, threshold])]
         for k in extracted_processed_result_history[exp_name]:
-            df_name = '_'.join([data_name, model_name, num_users, global_epoch, k])
+            df_name = '_'.join([data_name, model_name, num_clients, k])
             df[df_name].append(
                 pd.DataFrame(data=extracted_processed_result_history[exp_name][k].reshape(1, -1), index=index_name))
     startrow = 0
@@ -314,6 +336,39 @@ def make_vis(df):
         makedir_exist_ok(vis_path)
         plt.savefig(fig_path, dpi=500, bbox_inches='tight', pad_inches=0)
         plt.close(df_name)
+    return
+
+
+def make_lc(df):
+    metric_name_dict = {'CIFAR10': 'Accuracy', 'CIFAR100': 'Accuracy'}
+    loc_dict = {'CIFAR10': 'lower right', 'CIFAR100': 'lower right'}
+    data_split_mode_dict = {'iid': 'IID', 'non-iid-2': 'Non-IID'}
+    fig = {}
+    for df_name in df:
+        data_name, model_name, num_clients, metric_name, stat = df_name.split('_')
+        if stat == 'std':
+            continue
+        metric_name = metric_name_dict[data_name]
+        for ((index, row), (_, row_std)) in zip(df[df_name].iterrows(), df[df_name].iterrows()):
+            active_rate, data_split_mode, num_supervised, client_data_mode, threshold = index.split('_')
+            data_split_mode_ = data_split_mode_dict[data_split_mode]
+            label_name = '{}, $C={}, N_S={}$'.format(data_split_mode_, active_rate, num_supervised)
+            y = row.to_numpy()[1:151]
+            x = np.arange(len(y))
+            fig[df_name] = plt.figure(df_name)
+            plt.plot(x, y, label=label_name)
+            plt.legend(loc=loc_dict[data_name], fontsize=fontsize)
+            plt.xlabel('Communication Rounds', fontsize=fontsize)
+            plt.ylabel(metric_name, fontsize=fontsize)
+            plt.xticks(fontsize=fontsize)
+            plt.yticks(fontsize=fontsize)
+    for fig_name in fig:
+        fig[fig_name] = plt.figure(fig_name)
+        plt.grid()
+        fig_path = '{}/{}.{}'.format(vis_path, fig_name, save_format)
+        makedir_exist_ok(vis_path)
+        plt.savefig(fig_path, dpi=500, bbox_inches='tight', pad_inches=0)
+        plt.close(fig_name)
     return
 
 

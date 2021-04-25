@@ -45,23 +45,19 @@ def runExperiment():
     model = eval('models.{}().to(cfg["device"])'.format(cfg['model_name']))
     metric = Metric({'test': ['Loss', 'Accuracy']})
     result = resume(cfg['model_tag'], load_tag='best')
-    iter = result['iter']
     last_epoch = result['epoch']
     data_separate = result['data_separate']
-    mask = result['mask']
     data_split = result['data_split']
-    target_split = result['target_split']
-    model.load_state_dict(result['model_state_dict'])
-    data_loader = make_data_loader(dataset, 'center')
+    model.load_state_dict(result['server'].model_state_dict)
+    data_loader = make_data_loader(dataset, 'server')
     test_logger = make_logger('output/runs/test_{}'.format(cfg['model_tag']))
     test_logger.safe(True)
-    test_model = make_batchnorm_stats(dataset['train'], model, 'center')
+    test_model = make_batchnorm_stats(dataset['train'], model, 'server')
     test(data_loader['test'], test_model, metric, test_logger, last_epoch)
     test_logger.safe(False)
     result = resume(cfg['model_tag'], load_tag='checkpoint')
     train_logger = result['logger'] if 'logger' in result else None
-    result = {'cfg': cfg, 'iter': iter, 'epoch': last_epoch, 'data_separate': data_separate, 'mask': mask,
-              'data_split': data_split, 'target_split': target_split,
+    result = {'cfg': cfg, 'epoch': last_epoch, 'data_separate': data_separate, 'data_split': data_split,
               'logger': {'train': train_logger, 'test': test_logger}}
     save(result, './output/result/{}.pt'.format(cfg['model_tag']))
     return
