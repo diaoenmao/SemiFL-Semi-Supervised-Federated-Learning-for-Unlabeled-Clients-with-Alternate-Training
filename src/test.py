@@ -44,3 +44,18 @@ from logger import Logger
 #     print(ce)
 #     print(kld)
 #     print(js)
+
+# if __name__ == "__main__":
+#     process_control()
+#     cfg['target_size'] = 10
+#     model = eval('models.{}().to(cfg["device"])'.format(cfg['model_name']))
+#     optimizer = make_optimizer(model, 'server')
+#     print(optimizer.state_dict())
+#     exit()
+#     scheduler = make_scheduler(optimizer, 'global')
+#     lr = []
+#     for i in range(300):
+#         lr.append(optimizer.param_groups[0]['lr'])
+#         scheduler.step()
+#     print(lr)
+#     print(lr[285])

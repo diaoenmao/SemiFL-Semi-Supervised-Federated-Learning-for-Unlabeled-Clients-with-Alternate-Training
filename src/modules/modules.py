@@ -8,7 +8,7 @@ import torch.nn.functional as F
 import models
 from itertools import compress
 from config import cfg
-from data import make_data_loader, make_dataset_normal, make_batchnorm_stats
+from data import make_data_loader, make_batchnorm_stats
 from utils import to_device, make_optimizer, make_scheduler, collate
 from metrics import Accuracy
 
@@ -16,15 +16,15 @@ from metrics import Accuracy
 class Server:
     def __init__(self, model):
         self.model_state_dict = copy.deepcopy(model.state_dict())
-        optimizer = make_optimizer(model, 'server')
-        scheduler = make_scheduler(optimizer, 'global')
+        optimizer = make_optimizer(model, 'local')
         self.optimizer_state_dict = optimizer.state_dict()
-        self.scheduler_state_dict = scheduler.state_dict()
+        global_optimizer = make_optimizer(model, 'global')
+        self.global_optimizer_state_dict = global_optimizer.state_dict()
 
     def distribute(self, dataset, client):
         model = eval('models.{}().to(cfg["device"])'.format(cfg['model_name']))
         model.load_state_dict(self.model_state_dict)
-        model = make_batchnorm_stats(dataset, model, 'server')
+        model = make_batchnorm_stats(dataset, model, 'global')
         for m in range(len(client)):
             client[m].model_state_dict = copy.deepcopy(model.state_dict())
         return
@@ -34,7 +34,6 @@ class Server:
             valid_client = [client[i] for i in range(len(client)) if client[i].active]
             if len(valid_client) > 0:
                 logits = [1 for _ in range(len(valid_client))]
-                logits = [1 for _ in range(len(valid_client) + 1)]
                 weight = torch.tensor(logits).float().softmax(dim=-1)
                 model = eval('models.{}().to(cfg["device"])'.format(cfg['model_name']))
                 model.load_state_dict(self.model_state_dict)
@@ -42,7 +41,6 @@ class Server:
                     parameter_type = k.split('.')[-1]
                     if 'weight' in parameter_type or 'bias' in parameter_type:
                         tmp_v = v.data.new_zeros(v.size())
-                        # tmp_v = weight[-1] * copy.deepcopy(v.data)
                         for m in range(len(valid_client)):
                             tmp_v += weight[m] * client[m].model_state_dict[k]
                         v.data = tmp_v.data
@@ -51,16 +49,15 @@ class Server:
                 client[i].active = False
         return
 
-    def train(self, dataset, metric, logger):
+    def train(self, dataset, lr, metric, logger):
         data_loader = make_data_loader({'train': dataset}, 'server')['train']
         model = eval('models.{}().to(cfg["device"])'.format(cfg['model_name']))
         model.load_state_dict(self.model_state_dict)
-        optimizer = make_optimizer(model, 'server')
+        self.optimizer_state_dict['param_groups'][0]['lr'] = lr
+        optimizer = make_optimizer(model, 'local')
         optimizer.load_state_dict(self.optimizer_state_dict)
-        scheduler = make_scheduler(optimizer, 'global')
-        scheduler.load_state_dict(self.scheduler_state_dict)
         model.train(True)
-        for epoch in range(1, cfg['client']['num_epochs'] + 1):
+        for epoch in range(1, cfg['local']['num_epochs'] + 1):
             for i, input in enumerate(data_loader):
                 input = collate(input)
                 input_size = input['data'].size(0)
@@ -72,10 +69,8 @@ class Server:
                 optimizer.step()
                 evaluation = metric.evaluate(metric.metric_name['train'], input, output)
                 logger.append(evaluation, 'train', n=input_size)
-        scheduler.step()
         self.model_state_dict = model.state_dict()
         self.optimizer_state_dict = optimizer.state_dict()
-        self.scheduler_state_dict = scheduler.state_dict()
         return
 
 
@@ -84,10 +79,8 @@ class Client:
         self.client_id = client_id
         self.data_split = data_split
         self.model_state_dict = copy.deepcopy(model.state_dict())
-        optimizer = make_optimizer(model, 'client')
-        scheduler = make_scheduler(optimizer, 'global')
+        optimizer = make_optimizer(model, 'local')
         self.optimizer_state_dict = optimizer.state_dict()
-        self.scheduler_state_dict = scheduler.state_dict()
         self.threshold = threshold
         self.active = False
         self.buffer = None
@@ -110,8 +103,7 @@ class Client:
 
     def make_dataset(self, dataset):
         with torch.no_grad():
-            # dataset, _transform = make_dataset_normal(dataset)
-            data_loader = make_data_loader({'train': dataset}, 'client', shuffle={'train': False})['train']
+            data_loader = make_data_loader({'train': dataset}, 'global', shuffle={'train': False})['train']
             model = eval('models.{}(track=True).to(cfg["device"])'.format(cfg['model_name']))
             model.load_state_dict(self.model_state_dict)
             model.train(False)
@@ -125,22 +117,9 @@ class Client:
                 target_i = input['target']
                 output.append(output_i.cpu())
                 target.append(target_i.cpu())
-            # dataset.transform = _transform
             output = torch.cat(output, dim=0)
             target = torch.cat(target, dim=0)
-            if self.buffer is None:
-                self.buffer = F.softmax(output, dim=-1)
-            else:
-                # max_p_buffer, _ = torch.max(self.buffer, dim=-1)
-                # soft_pseudo_label = F.softmax(output, dim=-1)
-                # max_p_output, _ = torch.max(soft_pseudo_label, dim=-1)
-                # update_mask = max_p_output.ge(max_p_buffer) | max_p_output.ge(self.threshold)
-                # self.buffer[update_mask] = soft_pseudo_label[update_mask]
-
-                # soft_pseudo_label = F.softmax(output, dim=-1)
-                # self.buffer = 0.1 * self.buffer + 0.9 * soft_pseudo_label
-
-                self.buffer = F.softmax(output, dim=-1)
+            self.buffer = F.softmax(output, dim=-1)
             acc = Accuracy(self.buffer, target)
             new_target, mask = self.make_hard_pseudo_label(self.buffer)
             if torch.all(~mask):
@@ -160,16 +139,15 @@ class Client:
                 self.weight = self.make_weight(new_target)
                 return dataset
 
-    def train(self, dataset, metric, logger):
+    def train(self, dataset, lr, metric, logger):
         data_loader = make_data_loader({'train': dataset}, 'client')['train']
         model = eval('models.{}().to(cfg["device"])'.format(cfg['model_name']))
         model.load_state_dict(self.model_state_dict, strict=False)
-        optimizer = make_optimizer(model, 'client')
+        self.optimizer_state_dict['param_groups'][0]['lr'] = lr
+        optimizer = make_optimizer(model, 'local')
         optimizer.load_state_dict(self.optimizer_state_dict)
-        scheduler = make_scheduler(optimizer, 'global')
-        scheduler.load_state_dict(self.scheduler_state_dict)
         model.train(True)
-        for epoch in range(1, cfg['client']['num_epochs'] + 1):
+        for epoch in range(1, cfg['local']['num_epochs'] + 1):
             for i, input in enumerate(data_loader):
                 input = collate(input)
                 input_size = input['data'].size(0)
@@ -182,8 +160,6 @@ class Client:
                 optimizer.step()
                 evaluation = metric.evaluate(metric.metric_name['train'], input, output)
                 logger.append(evaluation, 'train', n=input_size)
-        scheduler.step()
         self.model_state_dict = model.state_dict()
         self.optimizer_state_dict = optimizer.state_dict()
-        self.scheduler_state_dict = scheduler.state_dict()
         return

@@ -124,36 +124,36 @@ def process_control():
     if cfg['data_split_mode'] in ['iid'] or 'non-iid' in cfg['data_split_mode']:
         cfg['server'] = {}
         cfg['server']['shuffle'] = {'train': True, 'test': False}
-        cfg['server']['optimizer_name'] = 'SGD'
-        cfg['server']['lr'] = 1e-1
-        cfg['server']['momentum'] = 0.9
-        cfg['server']['weight_decay'] = 5e-4
-        cfg['server']['nesterov'] = False
-        cfg['server']['num_epochs'] = 5
         if cfg['num_supervised'] > 1000:
             cfg['server']['batch_size'] = {'train': 250, 'test': 500}
         else:
-            cfg['server']['batch_size'] = {'train': 10, 'test': 500}
+            cfg['server']['batch_size'] = {'train': 25, 'test': 500}
         cfg['client'] = {}
         cfg['client']['shuffle'] = {'train': True, 'test': False}
-        cfg['client']['optimizer_name'] = 'SGD'
-        cfg['client']['lr'] = 1e-1
-        cfg['client']['momentum'] = 0.9
-        cfg['client']['weight_decay'] = 5e-4
-        cfg['client']['nesterov'] = False
-        cfg['client']['num_epochs'] = 5
         if cfg['num_clients'] > 10:
             cfg['client']['batch_size'] = {'train': 10, 'test': 50}
         else:
             cfg['client']['batch_size'] = {'train': 250, 'test': 500}
+        cfg['local'] = {}
+        cfg['local']['optimizer_name'] = 'SGD'
+        cfg['local']['lr'] = 1e-1
+        cfg['local']['momentum'] = 0.9
+        cfg['local']['weight_decay'] = 5e-4
+        cfg['local']['nesterov'] = False
+        cfg['local']['num_epochs'] = 5
         cfg['global'] = {}
         cfg['global']['batch_size'] = {'train': 250, 'test': 500}
         cfg['global']['shuffle'] = {'train': True, 'test': False}
-        cfg['global']['scheduler_name'] = 'CosineAnnealingLR'
         if cfg['num_clients'] > 10:
             cfg['global']['num_epochs'] = 600
         else:
             cfg['global']['num_epochs'] = 300
+        cfg['global']['optimizer_name'] = 'SGD'
+        cfg['global']['lr'] = 1
+        cfg['global']['momentum'] = 0
+        cfg['global']['weight_decay'] = 0
+        cfg['global']['nesterov'] = False
+        cfg['global']['scheduler_name'] = 'CosineAnnealingLR'
         cfg['threshold'] = float(cfg['control']['threshold'])
     else:
         model_name = cfg['model_name']
