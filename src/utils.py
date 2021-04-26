@@ -139,15 +139,15 @@ def process_control():
         cfg['local']['lr'] = 1e-1
         cfg['local']['momentum'] = 0.9
         cfg['local']['weight_decay'] = 5e-4
-        cfg['local']['nesterov'] = False
+        cfg['local']['nesterov'] = True
         cfg['local']['num_epochs'] = 5
         cfg['global'] = {}
         cfg['global']['batch_size'] = {'train': 250, 'test': 500}
         cfg['global']['shuffle'] = {'train': True, 'test': False}
         if cfg['num_clients'] > 10:
-            cfg['global']['num_epochs'] = 600
+            cfg['global']['num_epochs'] = 800
         else:
-            cfg['global']['num_epochs'] = 300
+            cfg['global']['num_epochs'] = 400
         cfg['global']['optimizer_name'] = 'SGD'
         cfg['global']['lr'] = 1
         cfg['global']['momentum'] = 0
@@ -162,7 +162,7 @@ def process_control():
         cfg[model_name]['lr'] = 1e-1
         cfg[model_name]['momentum'] = 0.9
         cfg[model_name]['weight_decay'] = 5e-4
-        cfg[model_name]['nesterov'] = False
+        cfg[model_name]['nesterov'] = True
         cfg[model_name]['scheduler_name'] = 'CosineAnnealingLR'
         cfg[model_name]['factor'] = 0.1
         cfg[model_name]['milestones'] = [100, 200]

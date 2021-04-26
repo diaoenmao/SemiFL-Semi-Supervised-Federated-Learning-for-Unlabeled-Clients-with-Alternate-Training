@@ -33,17 +33,22 @@ class Server:
         with torch.no_grad():
             valid_client = [client[i] for i in range(len(client)) if client[i].active]
             if len(valid_client) > 0:
-                logits = [1 for _ in range(len(valid_client))]
-                weight = torch.tensor(logits).float().softmax(dim=-1)
                 model = eval('models.{}().to(cfg["device"])'.format(cfg['model_name']))
                 model.load_state_dict(self.model_state_dict)
+                global_optimizer = make_optimizer(model, 'global')
+                global_optimizer.load_state_dict(self.global_optimizer_state_dict)
+                global_optimizer.zero_grad()
+                logits = [1 for _ in range(len(valid_client))]
+                weight = torch.tensor(logits).float().softmax(dim=-1)
                 for k, v in model.named_parameters():
                     parameter_type = k.split('.')[-1]
                     if 'weight' in parameter_type or 'bias' in parameter_type:
                         tmp_v = v.data.new_zeros(v.size())
                         for m in range(len(valid_client)):
                             tmp_v += weight[m] * client[m].model_state_dict[k]
-                        v.data = tmp_v.data
+                        v.grad = (v.data - tmp_v).detach()
+                global_optimizer.step()
+                self.global_optimizer_state_dict = global_optimizer.state_dict()
                 self.model_state_dict = model.state_dict()
             for i in range(len(client)):
                 client[i].active = False
@@ -69,8 +74,21 @@ class Server:
                 optimizer.step()
                 evaluation = metric.evaluate(metric.metric_name['train'], input, output)
                 logger.append(evaluation, 'train', n=input_size)
-        self.model_state_dict = model.state_dict()
-        self.optimizer_state_dict = optimizer.state_dict()
+        with torch.no_grad():
+            model_state_dict = model.state_dict()
+            _model = eval('models.{}().to(cfg["device"])'.format(cfg['model_name']))
+            _model.load_state_dict(self.model_state_dict)
+            global_optimizer = make_optimizer(_model, 'global')
+            global_optimizer.load_state_dict(self.global_optimizer_state_dict)
+            global_optimizer.zero_grad()
+            for k, v in _model.named_parameters():
+                parameter_type = k.split('.')[-1]
+                if 'weight' in parameter_type or 'bias' in parameter_type:
+                    tmp_v = model_state_dict[k]
+                    v.grad = (v.data - tmp_v).detach()
+            global_optimizer.step()
+            self.global_optimizer_state_dict = global_optimizer.state_dict()
+            self.model_state_dict = _model.state_dict()
         return
 
 
