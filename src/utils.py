@@ -116,10 +116,12 @@ def process_control():
     cfg['num_supervised'] = int(cfg['control']['num_supervised'])
     cfg['client_data_mode'] = cfg['control']['client_data_mode']
     if cfg['client_data_mode'] != 'none':
-        client_data_name = {'r': {'CIFAR10': 'CIFAR10', 'CIFAR100': 'CIFAR100'},
+        client_data_name = {'r': {'CIFAR10': 'CIFAR10', 'CIFAR100': 'CIFAR100', 'SVHN': 'SVHN', 'STL10': 'STL10'},
                             'ir': {'CIFAR10': 'CIFAR100', 'CIFAR100': 'CIFAR10'}}
         cfg['client_data_name'] = client_data_name[cfg['client_data_mode']][cfg['data_name']]
-    data_shape = {'MNIST': [1, 28, 28], 'CIFAR10': [3, 32, 32], 'CIFAR100': [3, 32, 32]}
+    else:
+        cfg['client_data_name'] = 'none'
+    data_shape = {'CIFAR10': [3, 32, 32], 'CIFAR100': [3, 32, 32], 'SVHN': [3, 32, 32], 'STL10': [3, 96, 96]}
     cfg['data_shape'] = data_shape[cfg['data_name']]
     cfg['conv'] = {'hidden_size': [64, 128, 256, 512]}
     cfg['resnet18'] = {'hidden_size': [64, 128, 256, 512]}

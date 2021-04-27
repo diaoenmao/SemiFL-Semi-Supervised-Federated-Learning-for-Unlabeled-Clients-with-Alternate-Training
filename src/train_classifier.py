@@ -8,7 +8,7 @@ import time
 import torch
 import torch.backends.cudnn as cudnn
 from config import cfg
-from data import fetch_dataset, make_data_loader, separate_dataset, make_batchnorm_stats
+from data import fetch_dataset, make_data_loader, separate_dataset_su, make_batchnorm_stats
 from metrics import Metric
 from utils import save, to_device, process_control, process_dataset, make_optimizer, make_scheduler, resume, collate
 from logger import make_logger
@@ -46,7 +46,7 @@ def runExperiment():
     torch.cuda.manual_seed(cfg['seed'])
     dataset = fetch_dataset(cfg['data_name'])
     process_dataset(dataset)
-    dataset['train'], data_separate = separate_dataset(dataset['train'])
+    dataset['train'], _, supervised_idx = separate_dataset_su(dataset['train'])
     data_loader = make_data_loader(dataset, cfg['model_name'])
     model = eval('models.{}().to(cfg["device"])'.format(cfg['model_name']))
     optimizer = make_optimizer(model, cfg['model_name'])
@@ -75,7 +75,7 @@ def runExperiment():
         scheduler.step()
         logger.safe(False)
         model_state_dict = model.module.state_dict() if cfg['world_size'] > 1 else model.state_dict()
-        result = {'cfg': cfg, 'epoch': epoch + 1, 'data_separate': data_separate,
+        result = {'cfg': cfg, 'epoch': epoch + 1, 'supervised_idx': supervised_idx,
                   'model_state_dict': model_state_dict, 'optimizer_state_dict': optimizer.state_dict(),
                   'scheduler_state_dict': scheduler.state_dict(), 'logger': logger}
         save(result, './output/model/{}_checkpoint.pt'.format(cfg['model_tag']))

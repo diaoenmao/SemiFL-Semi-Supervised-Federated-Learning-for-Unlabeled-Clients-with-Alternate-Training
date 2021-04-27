@@ -8,8 +8,8 @@ import torch
 import torch.backends.cudnn as cudnn
 import numpy as np
 from config import cfg
-from data import fetch_dataset, split_dataset, make_data_loader, separate_dataset, separate_dataset_sc, \
-    make_batchnorm_dataset_sc, make_batchnorm_stats
+from data import fetch_dataset, split_dataset, make_data_loader, separate_dataset, separate_dataset_su, \
+    make_batchnorm_dataset_su, make_batchnorm_stats
 from metrics import Metric
 from modules import Server, Client
 from utils import save, to_device, process_control, process_dataset, make_optimizer, make_scheduler, resume, collate
@@ -53,15 +53,15 @@ def runExperiment():
     client_dataset = fetch_dataset(cfg['client_data_name'])
     process_dataset(server_dataset)
     result = resume(cfg['teacher_model_tag'], load_tag='checkpoint')
-    data_separate = result['data_separate']
-    server_dataset['train'], client_dataset['train'], data_separate = separate_dataset_sc(server_dataset['train'],
-                                                                                          client_dataset['train'],
-                                                                                          data_separate)
+    supervised_idx = result['supervised_idx']
+    server_dataset['train'], client_dataset['train'], _ = separate_dataset_su(server_dataset['train'],
+                                                                              client_dataset['train'],
+                                                                              supervised_idx)
     data_loader = make_data_loader(server_dataset, 'global')
     model = eval('models.{}().to(cfg["device"])'.format(cfg['model_name']))
     optimizer = make_optimizer(model, 'local')
     scheduler = make_scheduler(optimizer, 'global')
-    batchnorm_dataset = make_batchnorm_dataset_sc(server_dataset['train'], client_dataset['train'])
+    batchnorm_dataset = make_batchnorm_dataset_su(server_dataset['train'], client_dataset['train'])
     data_split, _ = split_dataset(client_dataset, cfg['num_clients'], cfg['data_split_mode'])
     metric = Metric({'train': ['Loss', 'Accuracy'], 'test': ['Loss', 'Accuracy']})
     if cfg['resume_mode'] == 1:
@@ -96,7 +96,7 @@ def runExperiment():
         result = {'cfg': cfg, 'epoch': epoch + 1, 'server': server, 'client': client,
                   'optimizer_state_dict': optimizer.state_dict(),
                   'scheduler_state_dict': scheduler.state_dict(),
-                  'data_separate': data_separate, 'data_split': data_split, 'logger': logger}
+                  'supervised_idx': supervised_idx, 'data_split': data_split, 'logger': logger}
         save(result, './output/model/{}_checkpoint.pt'.format(cfg['model_tag']))
         if metric.compare(logger.mean['test/{}'.format(metric.pivot_name)]):
             metric.update(logger.mean['test/{}'.format(metric.pivot_name)])
@@ -129,7 +129,7 @@ def train_client(dataset, client, optimizer, metric, logger, epoch):
     lr = optimizer.param_groups[0]['lr']
     for i in range(num_active_clients):
         m = client_id[i]
-        dataset_m = separate_dataset(dataset, client[m].data_split['train'])[0]
+        dataset_m = separate_dataset(dataset, client[m].data_split['train'])
         dataset_m = client[m].make_dataset(dataset_m)
         if dataset_m is not None:
             client[m].active = True

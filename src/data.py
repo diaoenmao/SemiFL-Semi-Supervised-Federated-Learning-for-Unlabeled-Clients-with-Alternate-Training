@@ -156,38 +156,47 @@ def non_iid(dataset, num_users, target_split=None):
     return data_split, target_split
 
 
-def separate_dataset(dataset, data_separate=None):
-    if data_separate is None:
-        idx = list(range(len(dataset)))
-        num_items = cfg['num_supervised'] if cfg['num_supervised'] != -1 else len(dataset)
-        randperm = torch.randperm(len(idx))
-        data_separate = torch.tensor(idx)[randperm[:num_items]]
-        data_separate, _ = torch.sort(data_separate)
+def separate_dataset(dataset, idx):
     separated_dataset = copy.deepcopy(dataset)
-    separated_dataset.data = [dataset.data[s] for s in data_separate]
-    separated_dataset.target = [dataset.target[s] for s in data_separate]
+    separated_dataset.data = [dataset.data[s] for s in idx]
+    separated_dataset.target = [dataset.target[s] for s in idx]
     separated_dataset.other['id'] = list(range(len(separated_dataset.data)))
-    return separated_dataset, data_separate
+    return separated_dataset
 
 
-def separate_dataset_sc(center_dataset, user_dataset, data_separate=None):
-    idx = list(range(len(center_dataset)))
-    center_dataset, data_separate = separate_dataset(center_dataset, data_separate)
+def separate_dataset_su(server_dataset, client_dataset=None, supervised_idx=None):
+    if supervised_idx is None:
+        if cfg['data_name'] in ['STL10']:
+            supervised_idx = list(range(cfg['num_supervised']))
+        else:
+            target = np.array(server_dataset.target)
+            num_supervised_per_class = cfg['num_supervised'] // cfg['target_size']
+            supervised_idx = []
+            for i in range(cfg['target_size']):
+                idx = np.where(target == i)[0]
+                idx = np.random.choice(idx, num_supervised_per_class, False)
+                supervised_idx.extend(idx)
+    if cfg['client_data_name'] == 'none' or cfg['data_name'] == cfg['client_data_name']:
+        idx = list(range(len(server_dataset)))
+        unsupervised_idx = list(set(idx) - set(supervised_idx))
+    else:
+        unsupervised_idx = list(range(len(client_dataset)))
+    _server_dataset = separate_dataset(server_dataset, supervised_idx)
+    if client_dataset is None:
+        _client_dataset = separate_dataset(server_dataset, unsupervised_idx)
+    else:
+        _client_dataset = separate_dataset(client_dataset, unsupervised_idx)
+        transform = TransformUDA(*data_stats[cfg['client_data_name']])
+        _client_dataset.transform = transform
+    return _server_dataset, _client_dataset, supervised_idx
+
+
+def make_batchnorm_dataset_su(server_dataset, client_dataset):
+    batchnorm_dataset = copy.deepcopy(server_dataset)
     if cfg['data_name'] == cfg['client_data_name']:
-        data_unseparate = torch.tensor(list(set(idx) - set(data_separate.tolist())))
-        data_unseparate, _ = torch.sort(data_unseparate)
-        user_dataset, _ = separate_dataset(user_dataset, data_unseparate)
-    transform = TransformUDA(*data_stats[cfg['client_data_name']])
-    user_dataset.transform = transform
-    return center_dataset, user_dataset, data_separate
-
-
-def make_batchnorm_dataset_sc(center_dataset, user_dataset):
-    batchnorm_dataset = copy.deepcopy(center_dataset)
-    if cfg['data_name'] == cfg['client_data_name']:
-        batchnorm_dataset.data = batchnorm_dataset.data + user_dataset.data
-        batchnorm_dataset.target = batchnorm_dataset.target + user_dataset.target
-        batchnorm_dataset.other['id'] = batchnorm_dataset.other['id'] + user_dataset.other['id']
+        batchnorm_dataset.data = batchnorm_dataset.data + client_dataset.data
+        batchnorm_dataset.target = batchnorm_dataset.target + client_dataset.target
+        batchnorm_dataset.other['id'] = batchnorm_dataset.other['id'] + client_dataset.other['id']
     return batchnorm_dataset
 
 
@@ -217,19 +226,48 @@ def make_batchnorm_stats(dataset, model, tag):
 class TransformUDA(object):
     def __init__(self, mean, std):
         import datasets
-        self.weak = transforms.Compose([
-            transforms.RandomCrop(32, padding=4),
-            transforms.RandomHorizontalFlip(),
-            transforms.ToTensor(),
-            transforms.Normalize(mean=mean, std=std)
-        ])
-        self.strong = transforms.Compose([
-            transforms.RandomCrop(32, padding=4),
-            transforms.RandomHorizontalFlip(),
-            datasets.RandAugment(n=2, m=10),
-            transforms.ToTensor(),
-            transforms.Normalize(mean=mean, std=std)
-        ])
+        if cfg['client_data_name'] in ['CIFAR10', 'CIFAR100']:
+            self.weak = transforms.Compose([
+                transforms.RandomHorizontalFlip(),
+                transforms.RandomCrop(32, padding=4, padding_mode='reflect'),
+                transforms.ToTensor(),
+                transforms.Normalize(mean=mean, std=std)
+            ])
+            self.strong = transforms.Compose([
+                transforms.RandomHorizontalFlip(),
+                transforms.RandomCrop(32, padding=4, padding_mode='reflect'),
+                datasets.RandAugment(n=2, m=10),
+                transforms.ToTensor(),
+                transforms.Normalize(mean=mean, std=std)
+            ])
+        elif cfg['client_data_name'] in ['SVHN']:
+            self.weak = transforms.Compose([
+                transforms.RandomCrop(32, padding=4, padding_mode='reflect'),
+                transforms.ToTensor(),
+                transforms.Normalize(mean=mean, std=std)
+            ])
+            self.strong = transforms.Compose([
+                transforms.RandomCrop(32, padding=4, padding_mode='reflect'),
+                datasets.RandAugment(n=2, m=10),
+                transforms.ToTensor(),
+                transforms.Normalize(mean=mean, std=std)
+            ])
+        elif cfg['client_data_name'] in ['STL10']:
+            self.weak = transforms.Compose([
+                transforms.RandomHorizontalFlip(),
+                transforms.RandomCrop(96, padding=12, padding_mode='reflect'),
+                transforms.ToTensor(),
+                transforms.Normalize(mean=mean, std=std)
+            ])
+            self.strong = transforms.Compose([
+                transforms.RandomHorizontalFlip(),
+                transforms.RandomCrop(96, padding=12, padding_mode='reflect'),
+                datasets.RandAugment(n=2, m=10),
+                transforms.ToTensor(),
+                transforms.Normalize(mean=mean, std=std)
+            ])
+        else:
+            raise ValueError('Not valid dataset')
 
     def __call__(self, input):
         data = self.weak(input['data'])
