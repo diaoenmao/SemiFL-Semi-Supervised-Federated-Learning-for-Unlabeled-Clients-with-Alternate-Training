@@ -9,7 +9,7 @@ from utils import save, collate, Stats, makedir_exist_ok, process_control, proce
 if __name__ == "__main__":
     stats_path = './res/stats'
     dim = 1
-    data_names = ['MNIST', 'CIFAR10', 'CIFAR100']
+    data_names = ['MNIST', 'CIFAR10', 'CIFAR100', 'SVHN', 'STL10']
     process_control()
     cfg['seed'] = 0
     with torch.no_grad():

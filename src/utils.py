@@ -2,6 +2,7 @@ import collections.abc as container_abcs
 import errno
 import numpy as np
 import os
+import pickle
 import torch
 import torch.optim as optim
 from itertools import repeat
@@ -24,13 +25,15 @@ def makedir_exist_ok(path):
     return
 
 
-def save(input, path, protocol=2, mode='torch'):
+def save(input, path, mode='torch'):
     dirname = os.path.dirname(path)
     makedir_exist_ok(dirname)
     if mode == 'torch':
-        torch.save(input, path, pickle_protocol=protocol)
-    elif mode == 'numpy':
+        torch.save(input, path)
+    elif mode == 'np':
         np.save(path, input, allow_pickle=True)
+    elif mode == 'pickle':
+        pickle.dump(input, open(path, 'wb'))
     else:
         raise ValueError('Not valid save mode')
     return
@@ -39,8 +42,10 @@ def save(input, path, protocol=2, mode='torch'):
 def load(path, mode='torch'):
     if mode == 'torch':
         return torch.load(path, map_location=lambda storage, loc: storage)
-    elif mode == 'numpy':
+    elif mode == 'np':
         return np.load(path, allow_pickle=True)
+    elif mode == 'pickle':
+        return pickle.load(open(path, 'rb'))
     else:
         raise ValueError('Not valid save mode')
     return
@@ -112,7 +117,7 @@ def process_control():
     cfg['client_data_mode'] = cfg['control']['client_data_mode']
     if cfg['client_data_mode'] != 'none':
         client_data_name = {'r': {'CIFAR10': 'CIFAR10', 'CIFAR100': 'CIFAR100'},
-                          'ir': {'CIFAR10': 'CIFAR100', 'CIFAR100': 'CIFAR10'}}
+                            'ir': {'CIFAR10': 'CIFAR100', 'CIFAR100': 'CIFAR10'}}
         cfg['client_data_name'] = client_data_name[cfg['client_data_mode']][cfg['data_name']]
     data_shape = {'MNIST': [1, 28, 28], 'CIFAR10': [3, 32, 32], 'CIFAR100': [3, 32, 32]}
     cfg['data_shape'] = data_shape[cfg['data_name']]
@@ -139,7 +144,7 @@ def process_control():
         cfg['local']['lr'] = 1e-1
         cfg['local']['momentum'] = 0.9
         cfg['local']['weight_decay'] = 5e-4
-        cfg['local']['nesterov'] = True
+        cfg['local']['nesterov'] = False
         cfg['local']['num_epochs'] = 5
         cfg['global'] = {}
         cfg['global']['batch_size'] = {'train': 250, 'test': 500}

@@ -19,9 +19,10 @@ class CIFAR10(Dataset):
         self.transform = transform
         if not check_exists(self.processed_folder):
             self.process()
-        id, self.data, self.target = load(os.path.join(self.processed_folder, '{}.pt'.format(self.split)))
+        id, self.data, self.target = load(os.path.join(self.processed_folder, '{}.pt'.format(self.split)),
+                                          mode='pickle')
         self.classes_counts = make_classes_counts(self.target)
-        self.classes_to_labels, self.target_size = load(os.path.join(self.processed_folder, 'meta.pt'))
+        self.classes_to_labels, self.target_size = load(os.path.join(self.processed_folder, 'meta.pt'), mode='pickle')
         self.other = {'id': id}
 
     def __getitem__(self, index):
@@ -47,9 +48,9 @@ class CIFAR10(Dataset):
         if not check_exists(self.raw_folder):
             self.download()
         train_set, test_set, meta = self.make_data()
-        save(train_set, os.path.join(self.processed_folder, 'train.pt'))
-        save(test_set, os.path.join(self.processed_folder, 'test.pt'))
-        save(meta, os.path.join(self.processed_folder, 'meta.pt'))
+        save(train_set, os.path.join(self.processed_folder, 'train.pt'), mode='pickle')
+        save(test_set, os.path.join(self.processed_folder, 'test.pt'), mode='pickle')
+        save(meta, os.path.join(self.processed_folder, 'meta.pt'), mode='pickle')
         return
 
     def download(self):
