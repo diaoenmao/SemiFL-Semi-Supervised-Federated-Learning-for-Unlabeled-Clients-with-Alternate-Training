@@ -146,7 +146,7 @@ def process_control():
         cfg['local']['lr'] = 1e-1
         cfg['local']['momentum'] = 0.9
         cfg['local']['weight_decay'] = 5e-4
-        cfg['local']['nesterov'] = False
+        cfg['local']['nesterov'] = True
         cfg['local']['num_epochs'] = 5
         cfg['global'] = {}
         cfg['global']['batch_size'] = {'train': 250, 'test': 500}

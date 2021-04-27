@@ -37,9 +37,6 @@ def main():
     for i in range(cfg['num_experiments']):
         model_tag_list = [str(seeds[i]), cfg['data_name'], cfg['model_name'], cfg['control_name']]
         cfg['model_tag'] = '_'.join([x for x in model_tag_list if x])
-        teacher_model_name = '1_1_none_{}_none_none'.format(cfg['num_supervised'])
-        teacher_model_tag_list = [str(seeds[i]), cfg['data_name'], cfg['model_name'], teacher_model_name]
-        cfg['teacher_model_tag'] = '_'.join([x for x in teacher_model_tag_list if x])
         print('Experiment: {}'.format(cfg['model_tag']))
         runExperiment()
     return
@@ -52,11 +49,8 @@ def runExperiment():
     server_dataset = fetch_dataset(cfg['data_name'])
     client_dataset = fetch_dataset(cfg['client_data_name'])
     process_dataset(server_dataset)
-    result = resume(cfg['teacher_model_tag'], load_tag='checkpoint')
-    supervised_idx = result['supervised_idx']
-    server_dataset['train'], client_dataset['train'], _ = separate_dataset_su(server_dataset['train'],
-                                                                              client_dataset['train'],
-                                                                              supervised_idx)
+    server_dataset['train'], client_dataset['train'], supervised_idx = separate_dataset_su(server_dataset['train'],
+                                                                                           client_dataset['train'])
     data_loader = make_data_loader(server_dataset, 'global')
     model = eval('models.{}().to(cfg["device"])'.format(cfg['model_name']))
     optimizer = make_optimizer(model, 'local')

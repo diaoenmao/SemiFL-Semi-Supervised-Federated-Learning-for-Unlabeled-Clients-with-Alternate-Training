@@ -4,7 +4,7 @@ import torch
 import torch.backends.cudnn as cudnn
 import models
 from config import cfg
-from data import fetch_dataset, make_data_loader, separate_dataset, make_batchnorm_stats
+from data import fetch_dataset, make_data_loader, make_batchnorm_stats
 from metrics import Metric
 from utils import save, to_device, process_control, process_dataset, resume, collate
 from logger import make_logger
@@ -46,7 +46,7 @@ def runExperiment():
     metric = Metric({'test': ['Loss', 'Accuracy']})
     result = resume(cfg['model_tag'], load_tag='best')
     last_epoch = result['epoch']
-    data_separate = result['data_separate']
+    supervised_idx = result['supervised_idx']
     data_split = result['data_split']
     model.load_state_dict(result['server'].model_state_dict)
     data_loader = make_data_loader(dataset, 'server')
@@ -57,7 +57,7 @@ def runExperiment():
     test_logger.safe(False)
     result = resume(cfg['model_tag'], load_tag='checkpoint')
     train_logger = result['logger'] if 'logger' in result else None
-    result = {'cfg': cfg, 'epoch': last_epoch, 'data_separate': data_separate, 'data_split': data_split,
+    result = {'cfg': cfg, 'epoch': last_epoch, 'supervised_idx': supervised_idx, 'data_split': data_split,
               'logger': {'train': train_logger, 'test': test_logger}}
     save(result, './output/result/{}.pt'.format(cfg['model_tag']))
     return

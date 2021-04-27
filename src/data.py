@@ -169,13 +169,16 @@ def separate_dataset_su(server_dataset, client_dataset=None, supervised_idx=None
         if cfg['data_name'] in ['STL10']:
             supervised_idx = list(range(cfg['num_supervised']))
         else:
-            target = np.array(server_dataset.target)
-            num_supervised_per_class = cfg['num_supervised'] // cfg['target_size']
-            supervised_idx = []
-            for i in range(cfg['target_size']):
-                idx = np.where(target == i)[0]
-                idx = np.random.choice(idx, num_supervised_per_class, False)
-                supervised_idx.extend(idx)
+            if cfg['num_supervised'] == -1:
+                supervised_idx = list(range(len(server_dataset)))
+            else:
+                target = np.array(server_dataset.target)
+                num_supervised_per_class = cfg['num_supervised'] // cfg['target_size']
+                supervised_idx = []
+                for i in range(cfg['target_size']):
+                    idx = np.where(target == i)[0]
+                    idx = np.random.choice(idx, num_supervised_per_class, False)
+                    supervised_idx.extend(idx)
     if cfg['client_data_name'] == 'none' or cfg['data_name'] == cfg['client_data_name']:
         idx = list(range(len(server_dataset)))
         unsupervised_idx = list(set(idx) - set(supervised_idx))
