@@ -45,7 +45,7 @@ class Server:
                     if 'weight' in parameter_type or 'bias' in parameter_type:
                         tmp_v = v.data.new_zeros(v.size())
                         for m in range(len(valid_client)):
-                            tmp_v += weight[m] * client[m].model_state_dict[k]
+                            tmp_v += weight[m] * valid_client[m].model_state_dict[k]
                         v.grad = (v.data - tmp_v).detach()
                 global_optimizer.step()
                 self.global_optimizer_state_dict = global_optimizer.state_dict()

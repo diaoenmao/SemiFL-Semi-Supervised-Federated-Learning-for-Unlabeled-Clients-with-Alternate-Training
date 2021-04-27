@@ -134,7 +134,7 @@ def process_control():
         if cfg['num_supervised'] > 1000:
             cfg['server']['batch_size'] = {'train': 250, 'test': 500}
         else:
-            cfg['server']['batch_size'] = {'train': 25, 'test': 500}
+            cfg['server']['batch_size'] = {'train': 10, 'test': 500}
         cfg['client'] = {}
         cfg['client']['shuffle'] = {'train': True, 'test': False}
         if cfg['num_clients'] > 10:
@@ -160,6 +160,7 @@ def process_control():
         cfg['global']['momentum'] = 0
         cfg['global']['weight_decay'] = 0
         cfg['global']['nesterov'] = False
+        cfg['global']['betas'] = (0.9, 0.999)
         cfg['global']['scheduler_name'] = 'CosineAnnealingLR'
         cfg['threshold'] = float(cfg['control']['threshold'])
     else:
@@ -174,7 +175,10 @@ def process_control():
         cfg[model_name]['factor'] = 0.1
         cfg[model_name]['milestones'] = [100, 200]
         cfg[model_name]['num_epochs'] = 300
-        cfg[model_name]['batch_size'] = {'train': 250, 'test': 500}
+        if cfg['num_supervised'] > 1000 or cfg['num_supervised'] == -1:
+            cfg[model_name]['batch_size'] = {'train': 250, 'test': 500}
+        else:
+            cfg[model_name]['batch_size'] = {'train': 10, 'test': 500}
     return
 
 
@@ -223,7 +227,8 @@ def make_optimizer(model, tag):
         optimizer = optim.SGD(model.parameters(), lr=cfg[tag]['lr'], momentum=cfg[tag]['momentum'],
                               weight_decay=cfg[tag]['weight_decay'], nesterov=cfg[tag]['nesterov'])
     elif cfg[tag]['optimizer_name'] == 'Adam':
-        optimizer = optim.Adam(model.parameters(), lr=cfg[tag]['lr'], weight_decay=cfg[tag]['weight_decay'])
+        optimizer = optim.Adam(model.parameters(), lr=cfg[tag]['lr'], betas=cfg[tag]['betas'],
+                               weight_decay=cfg[tag]['weight_decay'])
     elif cfg[tag]['optimizer_name'] == 'LBFGS':
         optimizer = optim.LBFGS(model.parameters(), lr=cfg[tag]['lr'])
     else:
