@@ -37,8 +37,6 @@ def main():
     init_seed = args['init_seed']
     num_experiments = args['num_experiments']
     resume_mode = args['resume_mode']
-    data = args['data']
-    model = args['model']
     file = args['file']
     gpu_ids = [','.join(str(i) for i in list(range(x, x + world_size))) for x in list(range(0, num_gpus, world_size))]
     init_seeds = [list(range(init_seed, init_seed + num_experiments, experiment_step))]

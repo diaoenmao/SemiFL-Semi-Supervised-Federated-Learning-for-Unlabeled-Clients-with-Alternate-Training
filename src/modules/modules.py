@@ -9,7 +9,7 @@ import models
 from itertools import compress
 from config import cfg
 from data import make_data_loader, make_batchnorm_stats
-from utils import to_device, make_optimizer, make_scheduler, collate
+from utils import to_device, make_optimizer, collate
 from metrics import Accuracy
 
 
@@ -141,13 +141,14 @@ class Client:
             acc = Accuracy(self.buffer, target)
             new_target, mask = self.make_hard_pseudo_label(self.buffer)
             if torch.all(~mask):
-                print('Accuracy: {:.3f}, Number of Labeled: 0({})'.format(acc, len(output)))
+                print('Model: {} Accuracy: {:.3f}, Number of Labeled: 0({})'.format(cfg['model_tag'], acc, len(output)))
                 return None
             else:
                 new_acc = Accuracy(self.buffer[mask], target[mask])
                 num_labeled = int(mask.float().sum())
-                print('Accuracy: {:.3f} ({:.3f}), Number of Labeled: {}({})'.format(acc, new_acc, num_labeled,
-                                                                                    len(output)))
+                print('Model: {}, Accuracy: {:.3f} ({:.3f}), Number of Labeled: {}({})'.format(cfg['model_tag'], acc,
+                                                                                               new_acc, num_labeled,
+                                                                                               len(output)))
                 dataset = copy.deepcopy(dataset)
                 dataset.target = new_target.tolist()
                 mask = mask.tolist()

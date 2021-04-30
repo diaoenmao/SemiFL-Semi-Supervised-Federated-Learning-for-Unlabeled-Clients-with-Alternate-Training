@@ -55,7 +55,6 @@ def fetch_dataset(data_name):
         dataset['test'].transform = datasets.Compose([
             transforms.ToTensor(),
             transforms.Normalize(*data_stats[data_name])])
-
     elif data_name in ['STL10']:
         dataset['train'] = eval('datasets.{}(root=root, split=\'train\', '
                                 'transform=datasets.Compose([transforms.ToTensor()]))'.format(data_name))
