@@ -110,17 +110,11 @@ def process_dataset(dataset):
 
 
 def process_control():
-    cfg['num_clients'] = int(cfg['control']['num_clients'])
-    cfg['active_rate'] = float(cfg['control']['active_rate'])
-    cfg['data_split_mode'] = cfg['control']['data_split_mode']
-    cfg['num_supervised'] = int(cfg['control']['num_supervised'])
-    cfg['client_data_mode'] = cfg['control']['client_data_mode']
-    if cfg['client_data_mode'] != 'none':
-        client_data_name = {'r': {'CIFAR10': 'CIFAR10', 'CIFAR100': 'CIFAR100', 'SVHN': 'SVHN', 'STL10': 'STL10'},
-                            'ir': {'CIFAR10': 'CIFAR100', 'CIFAR100': 'CIFAR10'}}
-        cfg['client_data_name'] = client_data_name[cfg['client_data_mode']][cfg['data_name']]
-    else:
-        cfg['client_data_name'] = 'none'
+    cfg['num_supervised'] = int(cfg['control']['num_supervised']) if 'num_supervised' in cfg['control'] else None
+    cfg['num_clients'] = int(cfg['control']['num_clients']) if 'num_clients' in cfg['control'] else None
+    cfg['active_rate'] = float(cfg['control']['active_rate']) if 'active_rate' in cfg['control'] else None
+    cfg['data_split_mode'] = cfg['control']['data_split_mode'] if 'data_split_mode' in cfg['control'] else None
+    cfg['threshold'] = float(cfg['control']['threshold']) if 'threshold' in cfg['control'] else None
     data_shape = {'CIFAR10': [3, 32, 32], 'CIFAR100': [3, 32, 32], 'SVHN': [3, 32, 32], 'STL10': [3, 96, 96]}
     cfg['data_shape'] = data_shape[cfg['data_name']]
     cfg['conv'] = {'hidden_size': [64, 128, 256, 512]}
@@ -128,7 +122,7 @@ def process_control():
     cfg['wresnet28x2'] = {'depth': 28, 'widen_factor': 2, 'drop_rate': 0.0}
     cfg['wresnet28x8'] = {'depth': 28, 'widen_factor': 8, 'drop_rate': 0.0}
     cfg['wresnet37x2'] = {'depth': 37, 'widen_factor': 2, 'drop_rate': 0.0}
-    if cfg['data_split_mode'] in ['iid'] or 'non-iid' in cfg['data_split_mode']:
+    if cfg['data_split_mode'] is not None:
         cfg['server'] = {}
         cfg['server']['shuffle'] = {'train': True, 'test': False}
         if cfg['num_supervised'] > 1000:
@@ -157,12 +151,11 @@ def process_control():
             cfg['global']['num_epochs'] = 400
         cfg['global']['optimizer_name'] = 'SGD'
         cfg['global']['lr'] = 1
-        cfg['global']['momentum'] = 0.5
+        cfg['global']['momentum'] = 0.1
         cfg['global']['weight_decay'] = 0
         cfg['global']['nesterov'] = False
         cfg['global']['betas'] = (0.9, 0.999)
         cfg['global']['scheduler_name'] = 'CosineAnnealingLR'
-        cfg['threshold'] = float(cfg['control']['threshold'])
     else:
         model_name = cfg['model_name']
         cfg[model_name]['shuffle'] = {'train': True, 'test': False}

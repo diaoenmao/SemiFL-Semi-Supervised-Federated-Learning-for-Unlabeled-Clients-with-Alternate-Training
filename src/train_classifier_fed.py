@@ -7,7 +7,7 @@ import time
 import torch
 import torch.backends.cudnn as cudnn
 import numpy as np
-from config import cfg
+from config import cfg, process_args
 from data import fetch_dataset, split_dataset, make_data_loader, separate_dataset, separate_dataset_su, \
     make_batchnorm_dataset_su, make_batchnorm_stats
 from metrics import Metric
@@ -22,16 +22,11 @@ for k in cfg:
     exec('parser.add_argument(\'--{0}\', default=cfg[\'{0}\'], type=type(cfg[\'{0}\']))'.format(k))
 parser.add_argument('--control_name', default=None, type=str)
 args = vars(parser.parse_args())
-for k in cfg:
-    cfg[k] = args[k]
-if args['control_name']:
-    cfg['control'] = {k: v for k, v in zip(cfg['control'].keys(), args['control_name'].split('_'))} \
-        if args['control_name'] != 'None' else {}
-cfg['control_name'] = '_'.join(
-    [cfg['control'][k] for k in cfg['control'] if cfg['control'][k]]) if 'control' in cfg else ''
+process_args(args)
 
 
 def main():
+    print(cfg['control'], cfg['control_name'])
     process_control()
     seeds = list(range(cfg['init_seed'], cfg['init_seed'] + cfg['num_experiments']))
     for i in range(cfg['num_experiments']):
@@ -47,7 +42,7 @@ def runExperiment():
     torch.manual_seed(cfg['seed'])
     torch.cuda.manual_seed(cfg['seed'])
     server_dataset = fetch_dataset(cfg['data_name'])
-    client_dataset = fetch_dataset(cfg['client_data_name'])
+    client_dataset = fetch_dataset(cfg['data_name'])
     process_dataset(server_dataset)
     server_dataset['train'], client_dataset['train'], supervised_idx = separate_dataset_su(server_dataset['train'],
                                                                                            client_dataset['train'])

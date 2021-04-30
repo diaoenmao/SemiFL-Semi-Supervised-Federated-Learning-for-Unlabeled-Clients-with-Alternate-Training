@@ -3,7 +3,7 @@ import os
 import torch
 import torch.backends.cudnn as cudnn
 import models
-from config import cfg
+from config import cfg, process_args
 from data import fetch_dataset, make_data_loader, separate_dataset_su, make_batchnorm_stats
 from metrics import Metric
 from utils import save, to_device, process_control, process_dataset, resume, collate
@@ -16,13 +16,7 @@ for k in cfg:
     exec('parser.add_argument(\'--{0}\', default=cfg[\'{0}\'], type=type(cfg[\'{0}\']))'.format(k))
 parser.add_argument('--control_name', default=None, type=str)
 args = vars(parser.parse_args())
-for k in cfg:
-    cfg[k] = args[k]
-if args['control_name']:
-    cfg['control'] = {k: v for k, v in zip(cfg['control'].keys(), args['control_name'].split('_'))} \
-        if args['control_name'] != 'None' else {}
-cfg['control_name'] = '_'.join(
-    [cfg['control'][k] for k in cfg['control'] if cfg['control'][k]]) if 'control' in cfg else ''
+process_args(args)
 
 
 def main():

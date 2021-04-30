@@ -178,27 +178,23 @@ def separate_dataset_su(server_dataset, client_dataset=None, supervised_idx=None
                     idx = np.where(target == i)[0]
                     idx = np.random.choice(idx, num_supervised_per_class, False)
                     supervised_idx.extend(idx)
-    if cfg['client_data_name'] == 'none' or cfg['data_name'] == cfg['client_data_name']:
-        idx = list(range(len(server_dataset)))
-        unsupervised_idx = list(set(idx) - set(supervised_idx))
-    else:
-        unsupervised_idx = list(range(len(client_dataset)))
+    idx = list(range(len(server_dataset)))
+    unsupervised_idx = list(set(idx) - set(supervised_idx))
     _server_dataset = separate_dataset(server_dataset, supervised_idx)
     if client_dataset is None:
         _client_dataset = separate_dataset(server_dataset, unsupervised_idx)
     else:
         _client_dataset = separate_dataset(client_dataset, unsupervised_idx)
-        transform = TransformUDA(*data_stats[cfg['client_data_name']])
+        transform = TransformUDA(*data_stats[cfg['data_name']])
         _client_dataset.transform = transform
     return _server_dataset, _client_dataset, supervised_idx
 
 
 def make_batchnorm_dataset_su(server_dataset, client_dataset):
     batchnorm_dataset = copy.deepcopy(server_dataset)
-    if cfg['data_name'] == cfg['client_data_name']:
-        batchnorm_dataset.data = batchnorm_dataset.data + client_dataset.data
-        batchnorm_dataset.target = batchnorm_dataset.target + client_dataset.target
-        batchnorm_dataset.other['id'] = batchnorm_dataset.other['id'] + client_dataset.other['id']
+    batchnorm_dataset.data = batchnorm_dataset.data + client_dataset.data
+    batchnorm_dataset.target = batchnorm_dataset.target + client_dataset.target
+    batchnorm_dataset.other['id'] = batchnorm_dataset.other['id'] + client_dataset.other['id']
     return batchnorm_dataset
 
 
@@ -228,7 +224,7 @@ def make_batchnorm_stats(dataset, model, tag):
 class TransformUDA(object):
     def __init__(self, mean, std):
         import datasets
-        if cfg['client_data_name'] in ['CIFAR10', 'CIFAR100']:
+        if cfg['data_name'] in ['CIFAR10', 'CIFAR100']:
             self.weak = transforms.Compose([
                 transforms.RandomHorizontalFlip(),
                 transforms.RandomCrop(32, padding=4, padding_mode='reflect'),
@@ -242,7 +238,7 @@ class TransformUDA(object):
                 transforms.ToTensor(),
                 transforms.Normalize(mean=mean, std=std)
             ])
-        elif cfg['client_data_name'] in ['SVHN']:
+        elif cfg['data_name'] in ['SVHN']:
             self.weak = transforms.Compose([
                 transforms.RandomCrop(32, padding=4, padding_mode='reflect'),
                 transforms.ToTensor(),
@@ -254,7 +250,7 @@ class TransformUDA(object):
                 transforms.ToTensor(),
                 transforms.Normalize(mean=mean, std=std)
             ])
-        elif cfg['client_data_name'] in ['STL10']:
+        elif cfg['data_name'] in ['STL10']:
             self.weak = transforms.Compose([
                 transforms.RandomHorizontalFlip(),
                 transforms.RandomCrop(96, padding=12, padding_mode='reflect'),

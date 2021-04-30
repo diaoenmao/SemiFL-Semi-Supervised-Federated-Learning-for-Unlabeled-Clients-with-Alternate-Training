@@ -15,7 +15,7 @@ from metrics import Accuracy
 
 class Server:
     def __init__(self, model):
-        self.model_state_dict = copy.deepcopy(model.state_dict())
+        self.model_state_dict = {k: v.cpu() for k, v in model.state_dict().items()}
         optimizer = make_optimizer(model, 'local')
         self.optimizer_state_dict = optimizer.state_dict()
         global_optimizer = make_optimizer(model, 'global')
@@ -25,15 +25,16 @@ class Server:
         model = eval('models.{}().to(cfg["device"])'.format(cfg['model_name']))
         model.load_state_dict(self.model_state_dict)
         model = make_batchnorm_stats(dataset, model, 'global')
+        model_state_dict = {k: v.cpu() for k, v in model.state_dict().items()}
         for m in range(len(client)):
-            client[m].model_state_dict = copy.deepcopy(model.state_dict())
+            client[m].model_state_dict = copy.deepcopy(model_state_dict)
         return
 
     def update(self, client):
         with torch.no_grad():
             valid_client = [client[i] for i in range(len(client)) if client[i].active]
             if len(valid_client) > 0:
-                model = eval('models.{}().to(cfg["device"])'.format(cfg['model_name']))
+                model = eval('models.{}()'.format(cfg['model_name']))
                 model.load_state_dict(self.model_state_dict)
                 global_optimizer = make_optimizer(model, 'global')
                 global_optimizer.load_state_dict(self.global_optimizer_state_dict)
@@ -49,7 +50,7 @@ class Server:
                         v.grad = (v.data - tmp_v).detach()
                 global_optimizer.step()
                 self.global_optimizer_state_dict = global_optimizer.state_dict()
-                self.model_state_dict = model.state_dict()
+                self.model_state_dict = {k: v.cpu() for k, v in model.state_dict().items()}
             for i in range(len(client)):
                 client[i].active = False
         return
@@ -75,8 +76,8 @@ class Server:
                 evaluation = metric.evaluate(metric.metric_name['train'], input, output)
                 logger.append(evaluation, 'train', n=input_size)
         with torch.no_grad():
-            model_state_dict = model.state_dict()
-            _model = eval('models.{}().to(cfg["device"])'.format(cfg['model_name']))
+            model_state_dict = {k: v.cpu() for k, v in model.state_dict().items()}
+            _model = eval('models.{}()'.format(cfg['model_name']))
             _model.load_state_dict(self.model_state_dict)
             global_optimizer = make_optimizer(_model, 'global')
             global_optimizer.load_state_dict(self.global_optimizer_state_dict)
@@ -88,7 +89,7 @@ class Server:
                     v.grad = (v.data - tmp_v).detach()
             global_optimizer.step()
             self.global_optimizer_state_dict = global_optimizer.state_dict()
-            self.model_state_dict = _model.state_dict()
+            self.model_state_dict = {k: v.cpu() for k, v in _model.state_dict().items()}
         return
 
 
@@ -96,7 +97,7 @@ class Client:
     def __init__(self, client_id, model, data_split, threshold):
         self.client_id = client_id
         self.data_split = data_split
-        self.model_state_dict = copy.deepcopy(model.state_dict())
+        self.model_state_dict = {k: v.cpu() for k, v in model.state_dict().items()}
         optimizer = make_optimizer(model, 'local')
         self.optimizer_state_dict = optimizer.state_dict()
         self.threshold = threshold
@@ -179,6 +180,6 @@ class Client:
                 optimizer.step()
                 evaluation = metric.evaluate(metric.metric_name['train'], input, output)
                 logger.append(evaluation, 'train', n=input_size)
-        self.model_state_dict = model.state_dict()
         self.optimizer_state_dict = optimizer.state_dict()
+        self.model_state_dict = {k: v.cpu() for k, v in model.state_dict().items()}
         return
