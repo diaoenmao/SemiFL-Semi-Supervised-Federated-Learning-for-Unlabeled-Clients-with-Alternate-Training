@@ -26,7 +26,6 @@ process_args(args)
 
 
 def main():
-    print(cfg['control'], cfg['control_name'])
     process_control()
     seeds = list(range(cfg['init_seed'], cfg['init_seed'] + cfg['num_experiments']))
     for i in range(cfg['num_experiments']):

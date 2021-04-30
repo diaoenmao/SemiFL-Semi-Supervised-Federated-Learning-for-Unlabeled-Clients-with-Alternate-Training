@@ -75,21 +75,7 @@ class Server:
                 optimizer.step()
                 evaluation = metric.evaluate(metric.metric_name['train'], input, output)
                 logger.append(evaluation, 'train', n=input_size)
-        with torch.no_grad():
-            model_state_dict = {k: v.cpu() for k, v in model.state_dict().items()}
-            _model = eval('models.{}()'.format(cfg['model_name']))
-            _model.load_state_dict(self.model_state_dict)
-            global_optimizer = make_optimizer(_model, 'global')
-            global_optimizer.load_state_dict(self.global_optimizer_state_dict)
-            global_optimizer.zero_grad()
-            for k, v in _model.named_parameters():
-                parameter_type = k.split('.')[-1]
-                if 'weight' in parameter_type or 'bias' in parameter_type:
-                    tmp_v = model_state_dict[k]
-                    v.grad = (v.data - tmp_v).detach()
-            global_optimizer.step()
-            self.global_optimizer_state_dict = global_optimizer.state_dict()
-            self.model_state_dict = {k: v.cpu() for k, v in _model.state_dict().items()}
+        self.model_state_dict = {k: v.cpu() for k, v in model.state_dict().items()}
         return
 
 
