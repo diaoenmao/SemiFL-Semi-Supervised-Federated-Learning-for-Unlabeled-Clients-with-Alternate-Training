@@ -81,8 +81,12 @@ class WideResNet(nn.Module):
         output = {}
         output['target'] = self.f(input['data'])
         if 'weight' in input:
-            uda_output = self.f(input['uda'])
-            output['loss'] = loss_fn(uda_output, input['target'].detach(), input['weight'])
+            aug_output = self.f(input['aug'])
+            output['loss'] = loss_fn(aug_output, input['target'].detach(), input['weight'])
+            if 'mix_data' in input:
+                mix_output = self.f(input['mix_data'])
+                output['loss'] += input['lam'] * loss_fn(mix_output, input['mix_target'][:, 0].detach()) + (
+                            1 - input['lam']) * loss_fn(mix_output, input['mix_target'][:, 1].detach())
         else:
             output['loss'] = loss_fn(output['target'], input['target'])
         return output

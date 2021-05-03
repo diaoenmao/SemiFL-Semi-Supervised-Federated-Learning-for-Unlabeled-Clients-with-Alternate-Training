@@ -4,7 +4,7 @@ import numpy as np
 import models
 from config import cfg
 from torchvision import transforms
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Dataset
 from torch.utils.data.dataloader import default_collate
 from utils import collate, to_device
 
@@ -185,7 +185,7 @@ def separate_dataset_su(server_dataset, client_dataset=None, supervised_idx=None
         _client_dataset = separate_dataset(server_dataset, unsupervised_idx)
     else:
         _client_dataset = separate_dataset(client_dataset, unsupervised_idx)
-        transform = TransformUDA(*data_stats[cfg['data_name']])
+        transform = FixTransform(cfg['data_name'])
         _client_dataset.transform = transform
     return _server_dataset, _client_dataset, supervised_idx
 
@@ -221,54 +221,69 @@ def make_batchnorm_stats(dataset, model, tag):
     return test_model
 
 
-class TransformUDA(object):
-    def __init__(self, mean, std):
+class FixTransform(object):
+    def __init__(self, data_name):
         import datasets
-        if cfg['data_name'] in ['CIFAR10', 'CIFAR100']:
+        if data_name in ['CIFAR10', 'CIFAR100']:
             self.weak = transforms.Compose([
                 transforms.RandomHorizontalFlip(),
                 transforms.RandomCrop(32, padding=4, padding_mode='reflect'),
                 transforms.ToTensor(),
-                transforms.Normalize(mean=mean, std=std)
+                transforms.Normalize(*data_stats[data_name])
             ])
             self.strong = transforms.Compose([
                 transforms.RandomHorizontalFlip(),
                 transforms.RandomCrop(32, padding=4, padding_mode='reflect'),
                 datasets.RandAugment(n=2, m=10),
                 transforms.ToTensor(),
-                transforms.Normalize(mean=mean, std=std)
+                transforms.Normalize(*data_stats[data_name])
             ])
-        elif cfg['data_name'] in ['SVHN']:
+        elif data_name in ['SVHN']:
             self.weak = transforms.Compose([
                 transforms.RandomCrop(32, padding=4, padding_mode='reflect'),
                 transforms.ToTensor(),
-                transforms.Normalize(mean=mean, std=std)
+                transforms.Normalize(*data_stats[data_name])
             ])
             self.strong = transforms.Compose([
                 transforms.RandomCrop(32, padding=4, padding_mode='reflect'),
                 datasets.RandAugment(n=2, m=10),
                 transforms.ToTensor(),
-                transforms.Normalize(mean=mean, std=std)
+                transforms.Normalize(*data_stats[data_name])
             ])
-        elif cfg['data_name'] in ['STL10']:
+        elif data_name in ['STL10']:
             self.weak = transforms.Compose([
                 transforms.RandomHorizontalFlip(),
                 transforms.RandomCrop(96, padding=12, padding_mode='reflect'),
                 transforms.ToTensor(),
-                transforms.Normalize(mean=mean, std=std)
+                transforms.Normalize(*data_stats[data_name])
             ])
             self.strong = transforms.Compose([
                 transforms.RandomHorizontalFlip(),
                 transforms.RandomCrop(96, padding=12, padding_mode='reflect'),
                 datasets.RandAugment(n=2, m=10),
                 transforms.ToTensor(),
-                transforms.Normalize(mean=mean, std=std)
+                transforms.Normalize(*data_stats[data_name])
             ])
         else:
             raise ValueError('Not valid dataset')
 
     def __call__(self, input):
         data = self.weak(input['data'])
-        uda = self.strong(input['data'])
-        input = {**input, 'data': data, 'uda': uda}
+        aug = self.strong(input['data'])
+        input = {**input, 'data': data, 'aug': aug}
         return input
+
+
+class MixDataset(Dataset):
+    def __init__(self, size, dataset):
+        self.size = size
+        self.dataset = dataset
+
+    def __getitem__(self, index):
+        index = torch.randint(0, len(self.dataset), (1,)).item()
+        input = self.dataset[index]
+        input = {'data': input['data'], 'target': input['target']}
+        return input
+
+    def __len__(self):
+        return self.size

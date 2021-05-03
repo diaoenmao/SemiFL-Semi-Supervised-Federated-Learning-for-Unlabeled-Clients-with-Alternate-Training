@@ -123,6 +123,7 @@ def process_control():
     cfg['wresnet28x8'] = {'depth': 28, 'widen_factor': 8, 'drop_rate': 0.0}
     cfg['wresnet37x2'] = {'depth': 37, 'widen_factor': 2, 'drop_rate': 0.0}
     if cfg['data_split_mode'] is not None:
+        cfg['alpha'] = 0.75
         cfg['server'] = {}
         cfg['server']['shuffle'] = {'train': True, 'test': False}
         if cfg['num_supervised'] > 1000:
