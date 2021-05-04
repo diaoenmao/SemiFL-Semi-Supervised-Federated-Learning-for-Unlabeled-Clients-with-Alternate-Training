@@ -134,7 +134,7 @@ class Client:
                 self.weight = self.make_weight(new_target)
                 new_acc = Accuracy(self.buffer[mask], target[mask])
                 num_labeled = int(mask.float().sum())
-                print('Model: {}, Accuracy: {:.3f} ({:.3f}), Number of Labeled: {}({})'.format(cfg['model_tag'], acc,
+                print('Model: {} Accuracy: {:.3f} ({:.3f}), Number of Labeled: {}({})'.format(cfg['model_tag'], acc,
                                                                                                new_acc, num_labeled,
                                                                                                len(output)))
                 fix_dataset = copy.deepcopy(dataset)

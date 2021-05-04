@@ -152,7 +152,7 @@ def process_control():
             cfg['global']['num_epochs'] = 400
         cfg['global']['optimizer_name'] = 'SGD'
         cfg['global']['lr'] = 1
-        cfg['global']['momentum'] = 0.9
+        cfg['global']['momentum'] = 0.5
         cfg['global']['weight_decay'] = 0
         cfg['global']['nesterov'] = False
         cfg['global']['scheduler_name'] = 'CosineAnnealingLR'

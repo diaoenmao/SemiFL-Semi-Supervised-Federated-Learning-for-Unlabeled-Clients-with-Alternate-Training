@@ -79,7 +79,6 @@ class WideResNet(nn.Module):
 
     def forward(self, input):
         output = {}
-        output['target'] = self.f(input['data'])
         if 'weight' in input:
             aug_output = self.f(input['aug'])
             output['loss'] = loss_fn(aug_output, input['target'].detach(), input['weight'])
@@ -88,6 +87,7 @@ class WideResNet(nn.Module):
                 output['loss'] += input['lam'] * loss_fn(mix_output, input['mix_target'][:, 0].detach()) + (
                             1 - input['lam']) * loss_fn(mix_output, input['mix_target'][:, 1].detach())
         else:
+            output['target'] = self.f(input['data'])
             output['loss'] = loss_fn(output['target'], input['target'])
         return output
 
