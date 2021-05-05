@@ -125,8 +125,9 @@ def process_control():
         cfg['active_rate'] = float(cfg['control']['active_rate'])
         cfg['data_split_mode'] = cfg['control']['data_split_mode']
         cfg['client_loss_mode'] = cfg['control']['client_loss_mode']
-        cfg['gm'] = float(cfg['control']['gm'])
         cfg['local_epoch'] = int(cfg['control']['local_epoch'])
+        cfg['gm'] = float(cfg['control']['gm'])
+        cfg['weight'] = int(cfg['control']['weight'])
         cfg['naive'] = int(cfg['control']['naive'])
         cfg['threshold'] = 0.95
         cfg['alpha'] = 0.75

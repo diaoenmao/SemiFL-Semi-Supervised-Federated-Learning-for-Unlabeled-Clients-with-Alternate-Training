@@ -6,8 +6,9 @@ control:
   active_rate: '1'
   data_split_mode: 'iid'
   client_loss_mode: 'fix'
-  gm: '0'
   local_epoch: '1'
+  gm: '0'
+  weight: '0'
   naive: '0'
 # data
 data_name: CIFAR10

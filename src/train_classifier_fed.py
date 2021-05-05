@@ -75,8 +75,12 @@ def runExperiment():
         server.distribute(server_dataset['train'], client)
         train_client(client_dataset['train'], client, optimizer, metric, logger, epoch)
         logger.reset()
-        server.update(client)
-        train_server(server_dataset['train'], server, optimizer, metric, logger, epoch)
+        if cfg['naive']:
+            train_server(server_dataset['train'], server, optimizer, metric, logger, epoch)
+            server.update(client)
+        else:
+            server.update(client)
+            train_server(server_dataset['train'], server, optimizer, metric, logger, epoch)
         scheduler.step()
         model.load_state_dict(server.model_state_dict)
         test_model = make_batchnorm_stats(batchnorm_dataset, model, 'global')
