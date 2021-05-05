@@ -80,19 +80,18 @@ class Server:
 
 
 class Client:
-    def __init__(self, client_id, model, data_split, threshold):
+    def __init__(self, client_id, model, data_split):
         self.client_id = client_id
         self.data_split = data_split
         self.model_state_dict = {k: v.cpu() for k, v in model.state_dict().items()}
         optimizer = make_optimizer(model, 'local')
         self.optimizer_state_dict = optimizer.state_dict()
-        self.threshold = threshold
         self.active = False
         self.buffer = None
 
     def make_hard_pseudo_label(self, soft_pseudo_label):
         max_p, hard_pseudo_label = torch.max(soft_pseudo_label, dim=-1)
-        mask = max_p.ge(self.threshold)
+        mask = max_p.ge(cfg['threshold'])
         return hard_pseudo_label, mask
 
     def make_weight(self, target):

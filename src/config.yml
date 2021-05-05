@@ -5,10 +5,12 @@ control:
   num_clients: '1'
   active_rate: '1'
   data_split_mode: 'iid'
-  threshold: '0.95'
+  client_loss_mode: 'fix'
+  gm: '0'
+  local_epoch: '1'
+  naive: '0'
 # data
 data_name: CIFAR10
-# MNIST
 model_name: wresnet28x2
 # experiment
 num_workers: 0

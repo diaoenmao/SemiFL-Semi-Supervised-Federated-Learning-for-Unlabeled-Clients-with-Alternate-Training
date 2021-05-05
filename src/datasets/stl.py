@@ -72,7 +72,6 @@ class STL10(Dataset):
         train_unlabeled_data, train_unlabeled_target = read_data_file(
             os.path.join(self.raw_folder, 'stl10_binary', 'unlabeled_X.bin'))
         train_data = np.concatenate((train_labeled_data, train_unlabeled_data))
-        print()
         train_target = np.concatenate((train_labeled_target, train_unlabeled_target))
         test_data, test_target = read_data_file(
             os.path.join(self.raw_folder, 'stl10_binary', 'test_X.bin'),

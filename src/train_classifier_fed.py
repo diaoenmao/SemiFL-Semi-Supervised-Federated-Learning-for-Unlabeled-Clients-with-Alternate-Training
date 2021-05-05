@@ -64,12 +64,12 @@ def runExperiment():
             logger = result['logger']
         else:
             server = make_server(model)
-            client = make_client(model, data_split, cfg['threshold'])
+            client = make_client(model, data_split)
             logger = make_logger('output/runs/train_{}'.format(cfg['model_tag']))
     else:
         last_epoch = 1
         server = make_server(model)
-        client = make_client(model, data_split, cfg['threshold'])
+        client = make_client(model, data_split)
         logger = make_logger('output/runs/train_{}'.format(cfg['model_tag']))
     for epoch in range(last_epoch, cfg['global']['num_epochs'] + 1):
         server.distribute(server_dataset['train'], client)
@@ -99,12 +99,11 @@ def make_server(model):
     return server
 
 
-def make_client(model, data_split, threshold):
+def make_client(model, data_split):
     client_id = torch.arange(cfg['num_clients'])
     client = [None for _ in range(cfg['num_clients'])]
     for m in range(len(client)):
-        client[m] = Client(client_id[m], model, {'train': data_split['train'][m], 'test': data_split['test'][m]},
-                           threshold)
+        client[m] = Client(client_id[m], model, {'train': data_split['train'][m], 'test': data_split['test'][m]})
     return client
 
 

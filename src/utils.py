@@ -110,11 +110,9 @@ def process_dataset(dataset):
 
 
 def process_control():
-    cfg['num_supervised'] = int(cfg['control']['num_supervised']) if 'num_supervised' in cfg['control'] else None
-    cfg['num_clients'] = int(cfg['control']['num_clients']) if 'num_clients' in cfg['control'] else None
-    cfg['active_rate'] = float(cfg['control']['active_rate']) if 'active_rate' in cfg['control'] else None
-    cfg['data_split_mode'] = cfg['control']['data_split_mode'] if 'data_split_mode' in cfg['control'] else None
-    cfg['threshold'] = float(cfg['control']['threshold']) if 'threshold' in cfg['control'] else None
+    if cfg['control']['num_supervised'] == 'all':
+        cfg['control']['num_supervised'] = '-1'
+    cfg['num_supervised'] = int(cfg['control']['num_supervised'])
     data_shape = {'CIFAR10': [3, 32, 32], 'CIFAR100': [3, 32, 32], 'SVHN': [3, 32, 32], 'STL10': [3, 96, 96]}
     cfg['data_shape'] = data_shape[cfg['data_name']]
     cfg['conv'] = {'hidden_size': [64, 128, 256, 512]}
@@ -122,29 +120,37 @@ def process_control():
     cfg['wresnet28x2'] = {'depth': 28, 'widen_factor': 2, 'drop_rate': 0.0}
     cfg['wresnet28x8'] = {'depth': 28, 'widen_factor': 8, 'drop_rate': 0.0}
     cfg['wresnet37x2'] = {'depth': 37, 'widen_factor': 2, 'drop_rate': 0.0}
-    if cfg['data_split_mode'] is not None:
+    if 'num_clients' in cfg['control']:
+        cfg['num_clients'] = int(cfg['control']['num_clients'])
+        cfg['active_rate'] = float(cfg['control']['active_rate'])
+        cfg['data_split_mode'] = cfg['control']['data_split_mode']
+        cfg['client_loss_mode'] = cfg['control']['client_loss_mode']
+        cfg['gm'] = float(cfg['control']['gm'])
+        cfg['local_epoch'] = int(cfg['control']['local_epoch'])
+        cfg['naive'] = int(cfg['control']['naive'])
+        cfg['threshold'] = 0.95
         cfg['alpha'] = 0.75
         cfg['server'] = {}
         cfg['server']['shuffle'] = {'train': True, 'test': False}
         if cfg['num_supervised'] > 1000:
-            cfg['server']['batch_size'] = {'train': 100, 'test': 500}
+            cfg['server']['batch_size'] = {'train': 250, 'test': 500}
         else:
-            cfg['server']['batch_size'] = {'train': 10, 'test': 500}
+            cfg['server']['batch_size'] = {'train': 25, 'test': 500}
         cfg['client'] = {}
         cfg['client']['shuffle'] = {'train': True, 'test': False}
         if cfg['num_clients'] > 10:
-            cfg['client']['batch_size'] = {'train': 10, 'test': 50}
+            cfg['client']['batch_size'] = {'train': 25, 'test': 50}
         else:
-            cfg['client']['batch_size'] = {'train': 100, 'test': 500}
+            cfg['client']['batch_size'] = {'train': 250, 'test': 500}
         cfg['local'] = {}
         cfg['local']['optimizer_name'] = 'SGD'
-        cfg['local']['lr'] = 3e-2
+        cfg['local']['lr'] = 1e-1
         cfg['local']['momentum'] = 0.9
         cfg['local']['weight_decay'] = 5e-4
         cfg['local']['nesterov'] = True
-        cfg['local']['num_epochs'] = 5
+        cfg['local']['num_epochs'] = cfg['local_epoch']
         cfg['global'] = {}
-        cfg['global']['batch_size'] = {'train': 100, 'test': 500}
+        cfg['global']['batch_size'] = {'train': 250, 'test': 500}
         cfg['global']['shuffle'] = {'train': True, 'test': False}
         if cfg['num_clients'] > 10:
             cfg['global']['num_epochs'] = 800
@@ -152,7 +158,7 @@ def process_control():
             cfg['global']['num_epochs'] = 400
         cfg['global']['optimizer_name'] = 'SGD'
         cfg['global']['lr'] = 1
-        cfg['global']['momentum'] = 0.5
+        cfg['global']['momentum'] = cfg['gm']
         cfg['global']['weight_decay'] = 0
         cfg['global']['nesterov'] = False
         cfg['global']['scheduler_name'] = 'CosineAnnealingLR'
@@ -160,18 +166,18 @@ def process_control():
         model_name = cfg['model_name']
         cfg[model_name]['shuffle'] = {'train': True, 'test': False}
         cfg[model_name]['optimizer_name'] = 'SGD'
-        cfg[model_name]['lr'] = 3e-2
+        cfg[model_name]['lr'] = 1e-1
         cfg[model_name]['momentum'] = 0.9
         cfg[model_name]['weight_decay'] = 5e-4
         cfg[model_name]['nesterov'] = True
         cfg[model_name]['scheduler_name'] = 'CosineAnnealingLR'
         cfg[model_name]['factor'] = 0.1
         cfg[model_name]['milestones'] = [100, 200]
-        cfg[model_name]['num_epochs'] = 300
+        cfg[model_name]['num_epochs'] = 400
         if cfg['num_supervised'] > 1000 or cfg['num_supervised'] == -1:
-            cfg[model_name]['batch_size'] = {'train': 100, 'test': 500}
+            cfg[model_name]['batch_size'] = {'train': 250, 'test': 500}
         else:
-            cfg[model_name]['batch_size'] = {'train': 10, 'test': 500}
+            cfg[model_name]['batch_size'] = {'train': 20, 'test': 500}
     return
 
 
