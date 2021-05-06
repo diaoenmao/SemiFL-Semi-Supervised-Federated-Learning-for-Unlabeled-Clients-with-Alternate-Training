@@ -49,7 +49,7 @@ def fetch_dataset(data_name):
         dataset['test'] = eval('datasets.{}(root=root, split=\'test\', '
                                'transform=datasets.Compose([transforms.ToTensor()]))'.format(data_name))
         dataset['train'].transform = datasets.Compose([
-            transforms.RandomCrop(32, padding=4),
+            transforms.RandomCrop(32, padding=4, padding_mode='reflect'),
             transforms.ToTensor(),
             transforms.Normalize(*data_stats[data_name])])
         dataset['test'].transform = datasets.Compose([
@@ -85,9 +85,10 @@ def input_collate(batch):
         return default_collate(batch)
 
 
-def make_data_loader(dataset, tag, shuffle=None):
+def make_data_loader(dataset, tag, batch_size=None, shuffle=None):
     data_loader = {}
     for k in dataset:
+        _batch_size = cfg[tag]['batch_size'][k] if batch_size is None else batch_size[k]
         _shuffle = cfg[tag]['shuffle'][k] if shuffle is None else shuffle[k]
         data_loader[k] = DataLoader(dataset=dataset[k], shuffle=_shuffle, batch_size=cfg[tag]['batch_size'][k],
                                     pin_memory=True, num_workers=cfg['num_workers'], collate_fn=input_collate,
@@ -178,17 +179,26 @@ def separate_dataset(dataset, idx):
 def separate_dataset_su(server_dataset, client_dataset=None, supervised_idx=None):
     if supervised_idx is None:
         if cfg['data_name'] in ['STL10']:
-            supervised_idx = list(range(cfg['num_supervised']))
+            if cfg['num_supervised'] == -1:
+                supervised_idx = torch.arange(5000).tolist()
+            else:
+                target = torch.tensor(server_dataset.target)[:5000]
+                num_supervised_per_class = cfg['num_supervised'] // cfg['target_size']
+                supervised_idx = []
+                for i in range(cfg['target_size']):
+                    idx = torch.where(target == i)[0]
+                    idx = idx[torch.randperm(len(idx))[:num_supervised_per_class]].tolist()
+                    supervised_idx.extend(idx)
         else:
             if cfg['num_supervised'] == -1:
                 supervised_idx = list(range(len(server_dataset)))
             else:
-                target = np.array(server_dataset.target)
+                target = torch.tensor(server_dataset.target)
                 num_supervised_per_class = cfg['num_supervised'] // cfg['target_size']
                 supervised_idx = []
                 for i in range(cfg['target_size']):
-                    idx = np.where(target == i)[0]
-                    idx = np.random.choice(idx, num_supervised_per_class, False)
+                    idx = torch.where(target == i)[0]
+                    idx = idx[torch.randperm(len(idx))[:num_supervised_per_class]].tolist()
                     supervised_idx.extend(idx)
     idx = list(range(len(server_dataset)))
     unsupervised_idx = list(set(idx) - set(supervised_idx))

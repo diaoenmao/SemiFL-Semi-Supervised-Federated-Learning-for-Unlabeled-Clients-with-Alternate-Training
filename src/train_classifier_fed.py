@@ -50,7 +50,7 @@ def runExperiment():
     optimizer = make_optimizer(model, 'local')
     scheduler = make_scheduler(optimizer, 'global')
     batchnorm_dataset = make_batchnorm_dataset_su(server_dataset['train'], client_dataset['train'])
-    data_split, _ = split_dataset(client_dataset, cfg['num_clients'], cfg['data_split_mode'])
+    data_split = split_dataset(client_dataset, cfg['num_clients'], cfg['data_split_mode'])
     metric = Metric({'train': ['Loss', 'Accuracy'], 'test': ['Loss', 'Accuracy']})
     if cfg['resume_mode'] == 1:
         result = resume(cfg['model_tag'])
@@ -72,8 +72,7 @@ def runExperiment():
         client = make_client(model, data_split)
         logger = make_logger('output/runs/train_{}'.format(cfg['model_tag']))
     for epoch in range(last_epoch, cfg['global']['num_epochs'] + 1):
-        server.distribute(server_dataset['train'], client)
-        train_client(client_dataset['train'], client, optimizer, metric, logger, epoch)
+        train_client(server_dataset['train'], client_dataset['train'], server, client, optimizer, metric, logger, epoch)
         logger.reset()
         if cfg['naive']:
             train_server(server_dataset['train'], server, optimizer, metric, logger, epoch)
@@ -111,20 +110,25 @@ def make_client(model, data_split):
     return client
 
 
-def train_client(dataset, client, optimizer, metric, logger, epoch):
+def train_client(server_dataset, client_dataset, server, client, optimizer, metric, logger, epoch):
     logger.safe(True)
     num_active_clients = int(np.ceil(cfg['active_rate'] * cfg['num_clients']))
     client_id = torch.arange(cfg['num_clients'])[torch.randperm(cfg['num_clients'])[:num_active_clients]].tolist()
+    for i in range(num_active_clients):
+        client[client_id[i]].active = True
+    server.distribute(server_dataset, client)
     num_active_clients = len(client_id)
     start_time = time.time()
     lr = optimizer.param_groups[0]['lr']
     for i in range(num_active_clients):
         m = client_id[i]
-        dataset_m = separate_dataset(dataset, client[m].data_split['train'])
+        dataset_m = separate_dataset(client_dataset, client[m].data_split['train'])
         dataset_m = client[m].make_dataset(dataset_m)
         if dataset_m is not None:
             client[m].active = True
             client[m].train(dataset_m, lr, metric, logger)
+        else:
+            client[m].active = False
         if i % int((num_active_clients * cfg['log_interval']) + 1) == 0:
             _time = (time.time() - start_time) / (i + 1)
             epoch_finished_time = datetime.timedelta(seconds=_time * (num_active_clients - i - 1))

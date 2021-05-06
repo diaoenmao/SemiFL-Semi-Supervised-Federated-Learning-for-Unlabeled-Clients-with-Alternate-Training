@@ -94,7 +94,7 @@ def read_data_file(data_path, label_path=None):
         images = np.transpose(images, (0, 3, 2, 1))
     if label_path is not None:
         with open(label_path, 'rb') as f:
-            labels = np.fromfile(f, dtype=np.uint8) - 1  # 0-based
+            labels = (np.fromfile(f, dtype=np.uint8) - 1).astype(np.int64)  # 0-based
     else:
-        labels = - np.ones(images.shape[0])
+        labels = - np.ones(images.shape[0], dtype=np.int64)
     return images, labels

@@ -1,3 +1,4 @@
+import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -53,41 +54,45 @@ class NetworkBlock(nn.Module):
 class WideResNet(nn.Module):
     def __init__(self, data_shape, num_classes, depth, widen_factor, drop_rate):
         super(WideResNet, self).__init__()
-        hidden_size = [16, 16 * widen_factor, 32 * widen_factor, 64 * widen_factor]
-        assert ((depth - 4) % 6 == 0)
-        n = (depth - 4) / 6
+        num_down = int(min(math.log2(data_shape[1]), math.log2(data_shape[2]))) - 3
+        hidden_size = [16]
+        for i in range(num_down + 1):
+            hidden_size.append(16 * (2 ** i) * widen_factor)
+        n = ((depth - 1) / (num_down + 1) - 1) / 2
         block = BasicBlock
-        self.conv1 = nn.Conv2d(data_shape[0], hidden_size[0], kernel_size=3, stride=1, padding=1, bias=False)
-        self.block1 = NetworkBlock(n, hidden_size[0], hidden_size[1], block, 1, drop_rate)
-        self.block2 = NetworkBlock(n, hidden_size[1], hidden_size[2], block, 2, drop_rate)
-        self.block3 = NetworkBlock(n, hidden_size[2], hidden_size[3], block, 2, drop_rate)
-        self.bn1 = nn.BatchNorm2d(hidden_size[3])
-        self.relu = nn.ReLU(inplace=True)
-        self.fc1 = nn.Linear(hidden_size[3], num_classes)
-        self.hidden_size = hidden_size[3]
+        blocks = []
+        blocks.append(nn.Conv2d(data_shape[0], hidden_size[0], kernel_size=3, stride=1, padding=1, bias=False))
+        blocks.append(NetworkBlock(n, hidden_size[0], hidden_size[1], block, 1, drop_rate))
+        for i in range(num_down):
+            blocks.append(NetworkBlock(n, hidden_size[i + 1], hidden_size[i + 2], block, 2, drop_rate))
+        blocks.append(nn.BatchNorm2d(hidden_size[-1]))
+        blocks.append(nn.ReLU(inplace=True))
+        blocks.append(nn.AdaptiveAvgPool2d(1))
+        blocks.append(nn.Flatten())
+        self.blocks = nn.Sequential(*blocks)
+        self.classifer = nn.Linear(hidden_size[-1], num_classes)
 
     def f(self, x):
-        x = self.conv1(x)
-        x = self.block1(x)
-        x = self.block2(x)
-        x = self.block3(x)
-        x = self.relu(self.bn1(x))
-        x = F.adaptive_avg_pool2d(x, 1)
-        x = x.view(x.size(0), -1)
-        x = self.fc1(x)
+        x = self.blocks(x)
+        x = self.classifer(x)
         return x
 
     def forward(self, input):
         output = {}
-        if 'weight' in input:
-            aug_output = self.f(input['aug'])
-            output['loss'] = loss_fn(aug_output, input['target'].detach(), input['weight'])
-            if 'mix_data' in input:
+        output['target'] = self.f(input['data'])
+        if 'loss_mode' in input:
+            if input['loss_mode'] == 'sup':
+                output['loss'] = loss_fn(output['target'], input['target'], input['weight'])
+            elif input['loss_mode'] == 'fix':
+                aug_output = self.f(input['aug'])
+                output['loss'] = loss_fn(aug_output, input['target'].detach(), input['weight'])
+            elif input['loss_mode'] == 'fix-mix':
+                aug_output = self.f(input['aug'])
+                output['loss'] = loss_fn(aug_output, input['target'].detach(), input['weight'])
                 mix_output = self.f(input['mix_data'])
                 output['loss'] += input['lam'] * loss_fn(mix_output, input['mix_target'][:, 0].detach()) + (
-                            1 - input['lam']) * loss_fn(mix_output, input['mix_target'][:, 1].detach())
+                        1 - input['lam']) * loss_fn(mix_output, input['mix_target'][:, 1].detach())
         else:
-            output['target'] = self.f(input['data'])
             output['loss'] = loss_fn(output['target'], input['target'])
         return output
 

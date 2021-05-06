@@ -27,7 +27,8 @@ class Server:
         model = make_batchnorm_stats(dataset, model, 'global')
         model_state_dict = {k: v.cpu() for k, v in model.state_dict().items()}
         for m in range(len(client)):
-            client[m].model_state_dict = copy.deepcopy(model_state_dict)
+            if client[m].active:
+                client[m].model_state_dict = copy.deepcopy(model_state_dict)
         return
 
     def update(self, client):
@@ -103,6 +104,7 @@ class Client:
         self.optimizer_state_dict = optimizer.state_dict()
         self.active = False
         self.buffer = None
+        self.beta = torch.distributions.beta.Beta(torch.tensor([cfg['alpha']]), torch.tensor([cfg['alpha']]))
 
     def make_hard_pseudo_label(self, soft_pseudo_label):
         max_p, hard_pseudo_label = torch.max(soft_pseudo_label, dim=-1)
@@ -235,7 +237,7 @@ class Client:
                              'mix_data': mix_input['data'], 'mix_target': mix_input['target']}
                     input = collate(input)
                     input_size = input['data'].size(0)
-                    input['lam'] = torch.tensor(np.random.beta(cfg['alpha'], cfg['alpha']))
+                    input['lam'] = self.beta.sample()[0]
                     input['mix_data'] = (input['lam'] * input['data'] + (1 - input['lam']) * input['mix_data']).detach()
                     input['mix_target'] = torch.stack([input['target'], input['mix_target']], dim=-1)
                     input['weight'] = self.weight

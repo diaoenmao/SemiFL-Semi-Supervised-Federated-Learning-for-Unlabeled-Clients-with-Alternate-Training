@@ -63,6 +63,7 @@ from logger import Logger
 #     import numpy as np
 #
 #     process_control()
+#     cfg['data_name'] = 'CIFAR10'
 #     # cfg['data_split_mode'] = 'non-iid-d-0.3'
 #     cfg['data_split_mode'] = 'non-iid-l-2'
 #     dataset = fetch_dataset(cfg['data_name'])
@@ -125,3 +126,4 @@ from logger import Logger
 #         test.append({u[k]: count[k] for k in range(len(u))})
 #     print(test)
 #     exit()
+

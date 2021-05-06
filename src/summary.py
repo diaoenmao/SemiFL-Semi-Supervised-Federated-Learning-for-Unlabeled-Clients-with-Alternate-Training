@@ -2,7 +2,7 @@ import argparse
 from collections import OrderedDict
 import models
 import os
-from config import cfg
+from config import cfg, process_args
 from tabulate import tabulate
 import torch
 import torch.nn as nn
@@ -18,18 +18,12 @@ for k in cfg:
     exec('parser.add_argument(\'--{0}\', default=cfg[\'{0}\'], type=type(cfg[\'{0}\']))'.format(k))
 parser.add_argument('--control_name', default=None, type=str)
 args = vars(parser.parse_args())
-for k in cfg:
-    cfg[k] = args[k]
-if args['control_name']:
-    cfg['control'] = {k: v for k, v in zip(cfg['control'].keys(), args['control_name'].split('_'))} \
-        if args['control_name'] != 'None' else {}
-cfg['control_name'] = '_'.join([cfg['control'][k] for k in cfg['control']])
+process_args(args)
 
 
 def main():
     process_control()
     cfg['seed'] = 0
-    cfg['batch_size'] = {'train': 1, 'test': 1}
     runExperiment()
     return
 
@@ -37,6 +31,8 @@ def main():
 def runExperiment():
     dataset = fetch_dataset(cfg['data_name'])
     process_dataset(dataset)
+    cfg[cfg['model_name']]['batch_size']['train'] = 2
+    cfg[cfg['model_name']]['shuffle']['train'] = False
     data_loader = make_data_loader(dataset, cfg['model_name'])
     model = eval('models.{}().to(cfg["device"])'.format(cfg['model_name']))
     summary = summarize(data_loader['train'], model)
