@@ -72,14 +72,10 @@ def runExperiment():
         client = make_client(model, data_split)
         logger = make_logger('output/runs/train_{}'.format(cfg['model_tag']))
     for epoch in range(last_epoch, cfg['global']['num_epochs'] + 1):
-        train_client(server_dataset['train'], client_dataset['train'], server, client, optimizer, metric, logger, epoch)
+        train_client(batchnorm_dataset, client_dataset['train'], server, client, optimizer, metric, logger, epoch)
         logger.reset()
-        if cfg['naive']:
-            train_server(server_dataset['train'], server, optimizer, metric, logger, epoch)
-            server.update(client)
-        else:
-            server.update(client)
-            train_server(server_dataset['train'], server, optimizer, metric, logger, epoch)
+        server.update(client)
+        train_server(server_dataset['train'], server, optimizer, metric, logger, epoch)
         scheduler.step()
         model.load_state_dict(server.model_state_dict)
         test_model = make_batchnorm_stats(batchnorm_dataset, model, 'global')
@@ -110,13 +106,13 @@ def make_client(model, data_split):
     return client
 
 
-def train_client(server_dataset, client_dataset, server, client, optimizer, metric, logger, epoch):
+def train_client(batchnorm_dataset, client_dataset, server, client, optimizer, metric, logger, epoch):
     logger.safe(True)
     num_active_clients = int(np.ceil(cfg['active_rate'] * cfg['num_clients']))
     client_id = torch.arange(cfg['num_clients'])[torch.randperm(cfg['num_clients'])[:num_active_clients]].tolist()
     for i in range(num_active_clients):
         client[client_id[i]].active = True
-    server.distribute(server_dataset, client)
+    server.distribute(batchnorm_dataset, client)
     num_active_clients = len(client_id)
     start_time = time.time()
     lr = optimizer.param_groups[0]['lr']

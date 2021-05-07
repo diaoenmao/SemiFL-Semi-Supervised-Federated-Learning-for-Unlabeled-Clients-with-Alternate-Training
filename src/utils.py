@@ -130,21 +130,20 @@ def process_control():
         cfg['local_epoch'] = int(cfg['control']['local_epoch'])
         cfg['gm'] = float(cfg['control']['gm'])
         cfg['weight'] = int(cfg['control']['weight'])
-        cfg['naive'] = int(cfg['control']['naive'])
         cfg['threshold'] = 0.95
         cfg['alpha'] = 0.75
         cfg['server'] = {}
         cfg['server']['shuffle'] = {'train': True, 'test': False}
         if cfg['num_supervised'] > 512:
-            cfg['server']['batch_size'] = {'train': 128, 'test': 512}
+            cfg['server']['batch_size'] = {'train': 256, 'test': 512}
         else:
-            cfg['server']['batch_size'] = {'train': 8, 'test': 512}
+            cfg['server']['batch_size'] = {'train': 16, 'test': 512}
         cfg['client'] = {}
         cfg['client']['shuffle'] = {'train': True, 'test': False}
         if cfg['num_clients'] > 10:
-            cfg['client']['batch_size'] = {'train': 8, 'test': 512}
+            cfg['client']['batch_size'] = {'train': 16, 'test': 512}
         else:
-            cfg['client']['batch_size'] = {'train': 128, 'test': 512}
+            cfg['client']['batch_size'] = {'train': 256, 'test': 512}
         cfg['local'] = {}
         cfg['local']['optimizer_name'] = 'SGD'
         cfg['local']['lr'] = 3e-2
@@ -153,7 +152,7 @@ def process_control():
         cfg['local']['nesterov'] = True
         cfg['local']['num_epochs'] = cfg['local_epoch']
         cfg['global'] = {}
-        cfg['global']['batch_size'] = {'train': 128, 'test': 512}
+        cfg['global']['batch_size'] = {'train': 256, 'test': 512}
         cfg['global']['shuffle'] = {'train': True, 'test': False}
         if cfg['num_clients'] > 10:
             cfg['global']['num_epochs'] = 800
@@ -176,9 +175,9 @@ def process_control():
         cfg[model_name]['scheduler_name'] = 'CosineAnnealingLR'
         cfg[model_name]['num_epochs'] = 400
         if cfg['num_supervised'] > 512 or cfg['num_supervised'] == -1:
-            cfg[model_name]['batch_size'] = {'train': 128, 'test': 512}
+            cfg[model_name]['batch_size'] = {'train': 256, 'test': 512}
         else:
-            cfg[model_name]['batch_size'] = {'train': 8, 'test': 512}
+            cfg[model_name]['batch_size'] = {'train': 16, 'test': 512}
     return
 
 

@@ -40,27 +40,15 @@ class Server:
                 global_optimizer = make_optimizer(model, 'global')
                 global_optimizer.load_state_dict(self.global_optimizer_state_dict)
                 global_optimizer.zero_grad()
-                if cfg['naive']:
-                    weight = torch.ones(len(valid_client) + 1)
-                    weight = weight / weight.sum()
-                    for k, v in model.named_parameters():
-                        parameter_type = k.split('.')[-1]
-                        if 'weight' in parameter_type or 'bias' in parameter_type:
-                            tmp_v = v.data.new_zeros(v.size())
-                            for m in range(len(valid_client)):
-                                tmp_v += weight[m] * valid_client[m].model_state_dict[k]
-                            tmp_v += weight[-1] * self.next_model_state_dict[k]
-                            v.grad = (v.data - tmp_v).detach()
-                else:
-                    weight = torch.ones(len(valid_client))
-                    weight = weight / weight.sum()
-                    for k, v in model.named_parameters():
-                        parameter_type = k.split('.')[-1]
-                        if 'weight' in parameter_type or 'bias' in parameter_type:
-                            tmp_v = v.data.new_zeros(v.size())
-                            for m in range(len(valid_client)):
-                                tmp_v += weight[m] * valid_client[m].model_state_dict[k]
-                            v.grad = (v.data - tmp_v).detach()
+                weight = torch.ones(len(valid_client))
+                weight = weight / weight.sum()
+                for k, v in model.named_parameters():
+                    parameter_type = k.split('.')[-1]
+                    if 'weight' in parameter_type or 'bias' in parameter_type:
+                        tmp_v = v.data.new_zeros(v.size())
+                        for m in range(len(valid_client)):
+                            tmp_v += weight[m] * valid_client[m].model_state_dict[k]
+                        v.grad = (v.data - tmp_v).detach()
                 global_optimizer.step()
                 self.global_optimizer_state_dict = global_optimizer.state_dict()
                 self.model_state_dict = {k: v.cpu() for k, v in model.state_dict().items()}
@@ -88,10 +76,7 @@ class Server:
                 optimizer.step()
                 evaluation = metric.evaluate(metric.metric_name['train'], input, output)
                 logger.append(evaluation, 'train', n=input_size)
-        if cfg['naive']:
-            self.next_model_state_dict = {k: v.cpu() for k, v in model.state_dict().items()}
-        else:
-            self.model_state_dict = {k: v.cpu() for k, v in model.state_dict().items()}
+        self.model_state_dict = {k: v.cpu() for k, v in model.state_dict().items()}
         return
 
 
