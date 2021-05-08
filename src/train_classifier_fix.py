@@ -7,9 +7,8 @@ import shutil
 import time
 import torch
 import torch.backends.cudnn as cudnn
-from torch.utils.data import RandomSampler
 from config import cfg, process_args
-from data import fetch_dataset, make_data_loader, separate_dataset_su, make_batchnorm_stats, make_batchnorm_dataset_su
+from data import fetch_dataset, make_data_loader, separate_dataset_su, make_batchnorm_stats
 from metrics import Metric
 from utils import save, to_device, process_control, process_dataset, make_optimizer, make_scheduler, resume, collate
 from logger import make_logger
@@ -39,26 +38,13 @@ def runExperiment():
     cfg['seed'] = int(cfg['model_tag'].split('_')[0])
     torch.manual_seed(cfg['seed'])
     torch.cuda.manual_seed(cfg['seed'])
-    server_dataset = fetch_dataset(cfg['data_name'])
-    client_dataset = fetch_dataset(cfg['data_name'])
-    cfg['data_size'] = len(server_dataset['train'])
-    cfg['num_iter'] = round(len(server_dataset['train']) / cfg[cfg['model_name']]['batch_size']['train'])
-    client_batch_size = cfg[cfg['model_name']]['batch_size']['train'] * cfg['mu']
-    process_dataset(server_dataset)
-    server_dataset['train'], client_dataset['train'], supervised_idx = separate_dataset_su(server_dataset['train'],
-                                                                                           client_dataset['train'])
-    data_loader = make_data_loader(server_dataset, cfg['model_name'])
-    server_sampler = RandomSampler(server_dataset['train'], replacement=True, num_samples=cfg['data_size'])
-    server_data_loader = make_data_loader({'train': server_dataset['train']}, cfg['model_name'],
-                                          sampler={'train':server_sampler})['train']
-    client_sampler = RandomSampler(client_dataset['train'], replacement=True, num_samples=cfg['data_size'])
-    client_data_loader = make_data_loader({'train': client_dataset['train']}, cfg['model_name'],
-                                          batch_size={'train':client_batch_size},
-                                          sampler={'train':client_sampler})['train']
+    dataset = fetch_dataset(cfg['data_name'])
+    process_dataset(dataset)
+    dataset['train'], _, supervised_idx = separate_dataset_su(dataset['train'])
+    data_loader = make_data_loader(dataset, cfg['model_name'])
     model = eval('models.{}().to(cfg["device"])'.format(cfg['model_name']))
     optimizer = make_optimizer(model, cfg['model_name'])
     scheduler = make_scheduler(optimizer, cfg['model_name'])
-    batchnorm_dataset = make_batchnorm_dataset_su(server_dataset['train'], client_dataset['train'])
     metric = Metric({'train': ['Loss', 'Accuracy'], 'test': ['Loss', 'Accuracy']})
     if cfg['resume_mode'] == 1:
         result = resume(cfg['model_tag'])
@@ -77,8 +63,8 @@ def runExperiment():
         model = torch.nn.DataParallel(model, device_ids=list(range(cfg['world_size'])))
     for epoch in range(last_epoch, cfg[cfg['model_name']]['num_epochs'] + 1):
         logger.safe(True)
-        train(server_data_loader['train'], client_data_loader['train'], model, optimizer, metric, logger, epoch)
-        test_model = make_batchnorm_stats(batchnorm_dataset, model, cfg['model_name'])
+        train(data_loader['train'], model, optimizer, metric, logger, epoch)
+        test_model = make_batchnorm_stats(dataset['train'], model, cfg['model_name'])
         test(data_loader['test'], test_model, metric, logger, epoch)
         scheduler.step()
         logger.safe(False)
@@ -96,29 +82,11 @@ def runExperiment():
     return
 
 
-def train(server_data_loader, client_data_loader, model, optimizer, metric, logger, epoch):
-    server_iter = iter(server_data_loader)
-    client_iter = iter(client_data_loader)
+def train(data_loader, model, optimizer, metric, logger, epoch):
     model.train(True)
     start_time = time.time()
-    for i, in range(cfg['num_iter']):
-        server_input = server_iter.next()
-        client_input = client_iter.next()
-        server_input = collate(server_input)
-        client_input = collate(client_input)
-        soft_pseudo_label = torch.nn.functional.softmax(model.f(client_input['data'].to(cfg['device']), dim=-1))
-        max_p, hard_pseudo_label = torch.max(soft_pseudo_label, dim=-1)
-        mask = max_p.ge(cfg['threshold'])
-
-
-
-
-        input = {'data': server_input['data'], 'target': server_input['target'], 'aug': client_input['aug'],
-                 'mix_data': client_input['data'], 'mix_target': mix_input['target']}
+    for i, input in enumerate(data_loader):
         input = collate(input)
-
-        server_input = collate(server_input)
-        client_input = collate(client_input)
         input_size = input['data'].size(0)
         input = to_device(input, cfg['device'])
         optimizer.zero_grad()
@@ -129,14 +97,14 @@ def train(server_data_loader, client_data_loader, model, optimizer, metric, logg
         optimizer.step()
         evaluation = metric.evaluate(metric.metric_name['train'], input, output)
         logger.append(evaluation, 'train', n=input_size)
-        if i % int((len(server_data_loader) * cfg['log_interval']) + 1) == 0:
+        if i % int((len(data_loader) * cfg['log_interval']) + 1) == 0:
             _time = (time.time() - start_time) / (i + 1)
             lr = optimizer.param_groups[0]['lr']
-            epoch_finished_time = datetime.timedelta(seconds=round(_time * (cfg['num_iter'] - i - 1)))
+            epoch_finished_time = datetime.timedelta(seconds=round(_time * (len(data_loader) - i - 1)))
             exp_finished_time = epoch_finished_time + datetime.timedelta(
-                seconds=round((cfg[cfg['model_name']]['num_epochs'] - epoch) * _time * cfg['num_iter']))
+                seconds=round((cfg[cfg['model_name']]['num_epochs'] - epoch) * _time * len(data_loader)))
             info = {'info': ['Model: {}'.format(cfg['model_tag']),
-                             'Train Epoch: {}({:.0f}%)'.format(epoch, 100. * i / cfg['num_iter']),
+                             'Train Epoch: {}({:.0f}%)'.format(epoch, 100. * i / len(data_loader)),
                              'Learning rate: {:.6f}'.format(lr), 'Epoch Finished Time: {}'.format(epoch_finished_time),
                              'Experiment Finished Time: {}'.format(exp_finished_time)]}
             logger.append(info, 'train', mean=False)

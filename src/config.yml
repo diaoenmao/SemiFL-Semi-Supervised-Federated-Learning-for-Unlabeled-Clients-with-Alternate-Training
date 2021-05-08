@@ -2,10 +2,10 @@
 # control
 control:
   num_supervised: '4000'
+  loss_mode: 'fix-mix'
   num_clients: '1'
   active_rate: '1'
   data_split_mode: 'iid'
-  client_loss_mode: 'fix-mix'
   local_epoch: '5'
   gm: '0'
   weight: '1'

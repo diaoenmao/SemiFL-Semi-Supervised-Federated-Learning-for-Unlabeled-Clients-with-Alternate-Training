@@ -108,10 +108,10 @@ class Client:
         return weight
 
     def make_dataset(self, dataset):
-        if 'sup' in cfg['client_loss_mode']:
+        if 'sup' in cfg['loss_mode']:
             self.weight = self.make_weight(torch.tensor(dataset.target)) if cfg['weight'] else None
             return dataset
-        elif 'fix' in cfg['client_loss_mode']:
+        elif 'fix' in cfg['loss_mode']:
             with torch.no_grad():
                 data_loader = make_data_loader({'train': dataset}, 'global', shuffle={'train': False})['train']
                 model = eval('models.{}(track=True).to(cfg["device"])'.format(cfg['model_name']))
@@ -149,7 +149,7 @@ class Client:
                     fix_dataset.data = list(compress(fix_dataset.data, mask))
                     fix_dataset.target = list(compress(fix_dataset.target, mask))
                     fix_dataset.other = {'id': list(range(len(fix_dataset.data)))}
-                    if 'mix' in cfg['client_loss_mode']:
+                    if 'mix' in cfg['loss_mode']:
                         mix_dataset = copy.deepcopy(dataset)
                         mix_dataset.target = new_target.tolist()
                         mix_dataset = MixDataset(len(fix_dataset), mix_dataset)
@@ -161,7 +161,7 @@ class Client:
         return
 
     def train(self, dataset, lr, metric, logger):
-        if cfg['client_loss_mode'] == 'sup':
+        if cfg['loss_mode'] == 'sup':
             data_loader = make_data_loader({'train': dataset}, 'client')['train']
             model = eval('models.{}().to(cfg["device"])'.format(cfg['model_name']))
             model.load_state_dict(self.model_state_dict, strict=False)
@@ -174,7 +174,7 @@ class Client:
                     input = collate(input)
                     input_size = input['data'].size(0)
                     input['weight'] = self.weight
-                    input['loss_mode'] = cfg['client_loss_mode']
+                    input['loss_mode'] = cfg['loss_mode']
                     input = to_device(input, cfg['device'])
                     optimizer.zero_grad()
                     output = model(input)
@@ -183,7 +183,7 @@ class Client:
                     optimizer.step()
                     evaluation = metric.evaluate(metric.metric_name['train'], input, output)
                     logger.append(evaluation, 'train', n=input_size)
-        elif cfg['client_loss_mode'] == 'fix':
+        elif cfg['loss_mode'] == 'fix':
             fix_dataset, _ = dataset
             data_loader = make_data_loader({'train': fix_dataset}, 'client')['train']
             model = eval('models.{}().to(cfg["device"])'.format(cfg['model_name']))
@@ -197,7 +197,7 @@ class Client:
                     input = collate(input)
                     input_size = input['data'].size(0)
                     input['weight'] = self.weight
-                    input['loss_mode'] = cfg['client_loss_mode']
+                    input['loss_mode'] = cfg['loss_mode']
                     input = to_device(input, cfg['device'])
                     optimizer.zero_grad()
                     output = model(input)
@@ -206,7 +206,7 @@ class Client:
                     optimizer.step()
                     evaluation = metric.evaluate(metric.metric_name['train'], input, output)
                     logger.append(evaluation, 'train', n=input_size)
-        elif cfg['client_loss_mode'] == 'fix-mix':
+        elif cfg['loss_mode'] == 'fix-mix':
             fix_dataset, mix_dataset = dataset
             fix_data_loader = make_data_loader({'train': fix_dataset}, 'client')['train']
             mix_data_loader = make_data_loader({'train': mix_dataset}, 'client')['train']
@@ -226,7 +226,7 @@ class Client:
                     input['mix_data'] = (input['lam'] * input['data'] + (1 - input['lam']) * input['mix_data']).detach()
                     input['mix_target'] = torch.stack([input['target'], input['mix_target']], dim=-1)
                     input['weight'] = self.weight
-                    input['loss_mode'] = cfg['client_loss_mode']
+                    input['loss_mode'] = cfg['loss_mode']
                     input = to_device(input, cfg['device'])
                     optimizer.zero_grad()
                     output = model(input)

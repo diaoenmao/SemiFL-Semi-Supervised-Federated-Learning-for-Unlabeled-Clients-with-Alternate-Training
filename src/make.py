@@ -44,7 +44,7 @@ def main():
     num_experiments = [[experiment_step]]
     resume_mode = [[resume_mode]]
     filename = '{}_{}'.format(run, file)
-    if file == 'all':
+    if file == 'fs':
         script_name = [['{}_classifier.py'.format(run)]]
         control_name = [[['all']]]
         data_names = [['CIFAR10']]
@@ -64,7 +64,7 @@ def main():
         stl10_controls = make_controls(script_name, data_names, model_names, init_seeds, world_size, num_experiments,
                                        resume_mode, control_name)
         controls = cifar10_controls + cifar100_controls + svhn_controls + stl10_controls
-    elif file == 't':
+    elif file == 'ps':
         script_name = [['{}_classifier.py'.format(run)]]
         control_name = [[['250', '4000']]]
         data_names = [['CIFAR10']]
@@ -87,7 +87,7 @@ def main():
         stl10_controls = make_controls(script_name, data_names, model_names, init_seeds, world_size, num_experiments,
                                        resume_mode, control_name)
         controls = cifar10_controls + cifar100_controls + svhn_controls + stl10_controls
-    elif file == 'ts':
+    elif file == 'bipartite':
         script_name = [['{}_classifier_fed.py'.format(run)]]
         control_name = [[['250', '4000'], ['1'], ['1'], ['iid'], ['fix-mix'], ['5'], ['0'], ['1']]]
         data_names = [['CIFAR10']]
@@ -212,13 +212,13 @@ def main():
         controls = cifar10_controls + cifar100_controls
     elif file == 'loss':
         script_name = [['{}_classifier_fed.py'.format(run)]]
-        control_name = [[['4000'], ['1'], ['1'], ['iid'], ['fix', 'fix-mix'], ['5'], ['0'], ['1']]]
+        control_name = [[['4000'], ['1'], ['1'], ['iid'], ['fix'], ['5'], ['0'], ['1']]]
         data_names = [['CIFAR10']]
         model_names = [['wresnet28x2']]
         cifar10_controls = make_controls(script_name, data_names, model_names, init_seeds, world_size, num_experiments,
                                          resume_mode, control_name)
         script_name = [['{}_classifier_fed.py'.format(run)]]
-        control_name = [[['10000'], ['1'], ['1'], ['iid'], ['fix', 'fix-mix'], ['5'], ['0'], ['1']]]
+        control_name = [[['10000'], ['1'], ['1'], ['iid'], ['fix'], ['5'], ['0'], ['1']]]
         data_names = [['CIFAR100']]
         model_names = [['wresnet28x8']]
         cifar100_controls = make_controls(script_name, data_names, model_names, init_seeds, world_size, num_experiments,

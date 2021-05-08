@@ -6,11 +6,20 @@ import shutil
 import time
 import torch
 import torch.backends.cudnn as cudnn
-from config import cfg
-from data import fetch_dataset, make_data_loader
+from config import cfg, process_args
+from data import fetch_dataset, make_data_loader, separate_dataset_su, make_batchnorm_stats, make_batchnorm_dataset_su
 from metrics import Metric
 from utils import save, to_device, process_control, process_dataset, make_optimizer, make_scheduler, resume, collate
 from logger import Logger
+
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+cudnn.benchmark = True
+parser = argparse.ArgumentParser(description='cfg')
+for k in cfg:
+    exec('parser.add_argument(\'--{0}\', default=cfg[\'{0}\'], type=type(cfg[\'{0}\']))'.format(k))
+parser.add_argument('--control_name', default=None, type=str)
+args = vars(parser.parse_args())
+process_args(args)
 
 # if __name__ == "__main__":
 #     p = torch.nn.Parameter(torch.ones(5))
@@ -127,3 +136,34 @@ from logger import Logger
 #     print(test)
 #     exit()
 
+if __name__ == "__main__":
+    from torch.utils.data import RandomSampler
+
+    cfg['seed'] = 0
+    process_control()
+    server_dataset = fetch_dataset(cfg['data_name'])
+    client_dataset = fetch_dataset(cfg['data_name'])
+    cfg['data_size'] = len(server_dataset['train'])
+    cfg['num_iter'] = round(len(server_dataset['train']) / cfg[cfg['model_name']]['batch_size']['train'])
+    client_batch_size = cfg[cfg['model_name']]['batch_size']['train'] * cfg['mu']
+    print(cfg['num_iter'])
+    process_dataset(server_dataset)
+    server_dataset['train'], client_dataset['train'], supervised_idx = separate_dataset_su(server_dataset['train'],
+                                                                                           client_dataset['train'])
+    server_sampler = RandomSampler(server_dataset['train'], replacement=True, num_samples=cfg['data_size'])
+    server_data_loader = make_data_loader({'train': server_dataset['train']}, cfg['model_name'],
+                                          sampler={'train': server_sampler})['train']
+    client_sampler = RandomSampler(client_dataset['train'], replacement=True, num_samples=cfg['data_size'])
+    client_data_loader = make_data_loader({'train': client_dataset['train']}, cfg['model_name'],
+                                          batch_size={'train': client_batch_size},
+                                          sampler={'train': client_sampler})['train']
+    server_iter = iter(server_data_loader)
+    client_iter = iter(client_data_loader)
+    for i in range(cfg['num_iter']):
+        print(i)
+        server_input = server_iter.next()
+        client_input = client_iter.next()
+        server_input = collate(server_input)
+        client_input = collate(client_input)
+        print(server_input.keys())
+        print(client_input.keys())
