@@ -46,7 +46,7 @@ def main():
     filename = '{}_{}'.format(run, file)
     if file == 'fs':
         script_name = [['{}_classifier.py'.format(run)]]
-        control_name = [[['all']]]
+        control_name = [[['fs']]]
         data_names = [['CIFAR10']]
         model_names = [['wresnet28x2']]
         cifar10_controls = make_controls(script_name, data_names, model_names, init_seeds, world_size, num_experiments,
@@ -87,142 +87,140 @@ def main():
         stl10_controls = make_controls(script_name, data_names, model_names, init_seeds, world_size, num_experiments,
                                        resume_mode, control_name)
         controls = cifar10_controls + cifar100_controls + svhn_controls + stl10_controls
-    elif file == 'bipartite':
+    elif file == 'b':
         script_name = [['{}_classifier_fed.py'.format(run)]]
-        control_name = [[['250', '4000'], ['1'], ['1'], ['iid'], ['fix-mix'], ['5'], ['0'], ['1']]]
+        control_name = [[['250', '4000'], ['fix-mix'], ['1'], ['1'], ['iid'], ['5'], ['0'], ['1']]]
         data_names = [['CIFAR10']]
         model_names = [['wresnet28x2']]
         cifar10_controls = make_controls(script_name, data_names, model_names, init_seeds, world_size, num_experiments,
                                          resume_mode, control_name)
         control_name = [
-            [['2500', '10000'], ['1'], ['1'], ['iid'], ['fix-mix'], ['5'], ['0'], ['1']]]
+            [['2500', '10000'], ['fix-mix'], ['1'], ['1'], ['iid'], ['5'], ['0'], ['1']]]
         data_names = [['CIFAR100']]
         model_names = [['wresnet28x8']]
         cifar100_controls = make_controls(script_name, data_names, model_names, init_seeds, world_size, num_experiments,
                                           resume_mode, control_name)
-        control_name = [[['250', '1000'], ['1'], ['1'], ['iid'], ['fix-mix'], ['5'], ['0'], ['1']]]
+        control_name = [[['250', '1000'], ['fix-mix'], ['1'], ['1'], ['iid'], ['5'], ['0'], ['1']]]
         data_names = [['SVHN']]
         model_names = [['wresnet28x2']]
         svhn_controls = make_controls(script_name, data_names, model_names, init_seeds, world_size, num_experiments,
                                       resume_mode, control_name)
-        control_name = [[['1000'], ['1'], ['1'], ['iid'], ['fix-mix'], ['5'], ['0'], ['1']]]
+        control_name = [[['1000'], ['fix-mix'], ['1'], ['1'], ['iid'], ['5'], ['0'], ['1']]]
         data_names = [['STL10']]
         model_names = [['wresnet37x2']]
         stl10_controls = make_controls(script_name, data_names, model_names, init_seeds, world_size, num_experiments,
                                        resume_mode, control_name)
         controls = cifar10_controls + cifar100_controls + svhn_controls + stl10_controls
-    elif file == 'silo':
+    elif file == 'cs':
         script_name = [['{}_classifier_fed.py'.format(run)]]
         control_name = [
-            [['250', '4000'], ['10'], ['1'], ['iid', 'non-iid-l-2'], ['fix-mix', 'sup'], ['5'], ['0'], ['1']]]
+            [['250', '4000'], ['fix-mix'], ['10'], ['1'], ['iid', 'non-iid-l-2'], ['5'], ['0'], ['1']]]
         data_names = [['CIFAR10']]
         model_names = [['wresnet28x2']]
         cifar10_controls = make_controls(script_name, data_names, model_names, init_seeds, world_size, num_experiments,
                                          resume_mode, control_name)
         control_name = [
-            [['2500', '10000'], ['10'], ['1'], ['iid', 'non-iid-l-2'], ['fix-mix', 'sup'], ['5'], ['0'], ['1']]]
+            [['2500', '10000'], ['fix-mix'], ['10'], ['1'], ['iid', 'non-iid-l-2'], ['5'], ['0'], ['1']]]
         data_names = [['CIFAR100']]
         model_names = [['wresnet28x8']]
         cifar100_controls = make_controls(script_name, data_names, model_names, init_seeds, world_size, num_experiments,
                                           resume_mode, control_name)
         control_name = [
-            [['250', '1000'], ['10'], ['1'], ['iid', 'non-iid-l-2'], ['fix-mix', 'sup'], ['5'], ['0'], ['1']]]
+            [['250', '1000'], ['fix-mix'], ['10'], ['1'], ['iid', 'non-iid-l-2'], ['5'], ['0'], ['1']]]
         data_names = [['SVHN']]
         model_names = [['wresnet28x2']]
         svhn_controls = make_controls(script_name, data_names, model_names, init_seeds, world_size, num_experiments,
                                       resume_mode, control_name)
         control_name = [
-            [['1000'], ['10'], ['1'], ['iid', 'non-iid-l-2'], ['fix-mix'], ['5'], ['0'], ['1']]]
+            [['1000'], ['fix-mix'], ['10'], ['1'], ['iid', 'non-iid-l-2'], ['5'], ['0'], ['1']]]
         data_names = [['STL10']]
         model_names = [['wresnet37x2']]
         stl10_controls = make_controls(script_name, data_names, model_names, init_seeds, world_size, num_experiments,
                                        resume_mode, control_name)
         controls = cifar10_controls + cifar100_controls + svhn_controls + stl10_controls
-    elif file == 'device':
+    elif file == 'cd':
         script_name = [['{}_classifier_fed.py'.format(run)]]
         control_name = [
-            [['250', '4000'], ['100'], ['0.1'], ['iid', 'non-iid-l-2'], ['fix-mix', 'sup'], ['5'], ['0'], ['1']]]
+            [['250', '4000'], ['fix-mix'], ['100'], ['0.1'], ['iid', 'non-iid-l-2'], ['5'], ['0.5'], ['1']]]
         data_names = [['CIFAR10']]
         model_names = [['wresnet28x2']]
         cifar10_controls = make_controls(script_name, data_names, model_names, init_seeds, world_size, num_experiments,
                                          resume_mode, control_name)
         control_name = [
-            [['2500', '10000'], ['100'], ['0.1'], ['iid', 'non-iid-l-2'], ['fix-mix', 'sup'], ['5'], ['0'],
-             ['1']]]
+            [['2500', '10000'], ['fix-mix'], ['100'], ['0.1'], ['iid', 'non-iid-l-2'], ['5'], ['0.5'], ['1']]]
         data_names = [['CIFAR100']]
         model_names = [['wresnet28x8']]
         cifar100_controls = make_controls(script_name, data_names, model_names, init_seeds, world_size, num_experiments,
                                           resume_mode, control_name)
         control_name = [
-            [['250', '1000'], ['100'], ['0.1'], ['iid', 'non-iid-l-2'], ['fix-mix', 'sup'], ['5'], ['0'], ['1']]]
+            [['250', '1000'], ['fix-mix'], ['100'], ['0.1'], ['iid', 'non-iid-l-2'], ['5'], ['0.5'], ['1']]]
         data_names = [['SVHN']]
         model_names = [['wresnet28x2']]
         svhn_controls = make_controls(script_name, data_names, model_names, init_seeds, world_size, num_experiments,
                                       resume_mode, control_name)
-        control_name = [
-            [['1000'], ['100'], ['0.1'], ['iid', 'non-iid-l-2'], ['fix-mix'], ['5'], ['0'], ['1']]]
+        control_name = [[['1000'], ['fix-mix'], ['100'], ['0.1'], ['iid', 'non-iid-l-2'], ['5'], ['0.5'], ['1']]]
         data_names = [['STL10']]
         model_names = [['wresnet37x2']]
         stl10_controls = make_controls(script_name, data_names, model_names, init_seeds, world_size, num_experiments,
                                        resume_mode, control_name)
         controls = cifar10_controls + cifar100_controls + svhn_controls + stl10_controls
+    elif file == 'loss':
+        script_name = [['{}_classifier_fed.py'.format(run)]]
+        control_name = [[['4000'], ['fix'], ['1'], ['1'], ['iid'], ['5'], ['0'], ['1']]]
+        data_names = [['CIFAR10']]
+        model_names = [['wresnet28x2']]
+        cifar10_controls = make_controls(script_name, data_names, model_names, init_seeds, world_size, num_experiments,
+                                         resume_mode, control_name)
+        script_name = [['{}_classifier_fed.py'.format(run)]]
+        control_name = [[['10000'], ['fix'], ['1'], ['1'], ['iid'], ['5'], ['0'], ['1']]]
+        data_names = [['CIFAR100']]
+        model_names = [['wresnet28x8']]
+        cifar100_controls = make_controls(script_name, data_names, model_names, init_seeds, world_size, num_experiments,
+                                          resume_mode, control_name)
+        controls = cifar10_controls + cifar100_controls
     elif file == 'local-epoch':
         script_name = [['{}_classifier_fed.py'.format(run)]]
-        control_name = [[['4000'], ['100'], ['0.1'], ['iid', 'non-iid-l-2'], ['fix-mix'], ['1'], ['0'], ['1']]]
+        control_name = [[['4000'], ['fix-mix'], ['100'], ['0.1'], ['iid', 'non-iid-l-2'], ['1'], ['0.5'], ['1']]]
         data_names = [['CIFAR10']]
         model_names = [['wresnet28x2']]
         cifar10_controls = make_controls(script_name, data_names, model_names, init_seeds, world_size, num_experiments,
                                          resume_mode, control_name)
         script_name = [['{}_classifier_fed.py'.format(run)]]
-        control_name = [[['10000'], ['100'], ['0.1'], ['iid', 'non-iid-l-2'], ['fix-mix'], ['1'], ['0'], ['1']]]
+        control_name = [[['10000'], ['fix-mix'], ['100'], ['0.1'], ['iid', 'non-iid-l-2'], ['1'], ['0.5'], ['1']]]
         data_names = [['CIFAR100']]
         model_names = [['wresnet28x8']]
         cifar100_controls = make_controls(script_name, data_names, model_names, init_seeds, world_size, num_experiments,
-                                         resume_mode, control_name)
+                                          resume_mode, control_name)
         controls = cifar10_controls + cifar100_controls
     elif file == 'gm':
         script_name = [['{}_classifier_fed.py'.format(run)]]
-        control_name = [[['4000'], ['100'], ['0.1'], ['iid', 'non-iid-l-2'], ['fix-mix'], ['5'], ['0.1', '0.5', '0.9'],
+        control_name = [[['4000'], ['fix-mix'], ['100'], ['0.1'], ['iid', 'non-iid-l-2'], ['5'], ['0', '0.1', '0.9'],
                          ['1']]]
         data_names = [['CIFAR10']]
         model_names = [['wresnet28x2']]
         cifar10_controls = make_controls(script_name, data_names, model_names, init_seeds, world_size, num_experiments,
                                          resume_mode, control_name)
         script_name = [['{}_classifier_fed.py'.format(run)]]
-        control_name = [[['10000'], ['100'], ['0.1'], ['iid', 'non-iid-l-2'], ['fix-mix'], ['5'], ['0.1', '0.5', '0.9'],
+        control_name = [[['10000'], ['fix-mix'], ['100'], ['0.1'], ['iid', 'non-iid-l-2'], ['5'], ['0', '0.1', '0.9'],
                          ['1']]]
         data_names = [['CIFAR100']]
         model_names = [['wresnet28x8']]
         cifar100_controls = make_controls(script_name, data_names, model_names, init_seeds, world_size, num_experiments,
-                                         resume_mode, control_name)
+                                          resume_mode, control_name)
         controls = cifar10_controls + cifar100_controls
     elif file == 'weight':
         script_name = [['{}_classifier_fed.py'.format(run)]]
-        control_name = [[['4000'], ['100'], ['0.1'], ['iid', 'non-iid-l-2'], ['fix-mix'], ['5'], ['0'], ['0']]]
+        control_name = [[['4000'], ['fix-mix'], ['100'], ['0.1'], ['iid', 'non-iid-l-2'], ['5'], ['0.5'], ['0']]]
         data_names = [['CIFAR10']]
         model_names = [['wresnet28x2']]
         cifar10_controls = make_controls(script_name, data_names, model_names, init_seeds, world_size, num_experiments,
                                          resume_mode, control_name)
         script_name = [['{}_classifier_fed.py'.format(run)]]
-        control_name = [[['10000'], ['100'], ['0.1'], ['iid', 'non-iid-l-2'], ['fix-mix'], ['5'], ['0'], ['0']]]
+        control_name = [[['10000'], ['fix-mix'], ['100'], ['0.1'], ['iid', 'non-iid-l-2'], ['5'], ['0.5'], ['0']]]
         data_names = [['CIFAR100']]
         model_names = [['wresnet28x8']]
         cifar100_controls = make_controls(script_name, data_names, model_names, init_seeds, world_size, num_experiments,
-                                         resume_mode, control_name)
-        controls = cifar10_controls + cifar100_controls
-    elif file == 'loss':
-        script_name = [['{}_classifier_fed.py'.format(run)]]
-        control_name = [[['4000'], ['1'], ['1'], ['iid'], ['fix'], ['5'], ['0'], ['1']]]
-        data_names = [['CIFAR10']]
-        model_names = [['wresnet28x2']]
-        cifar10_controls = make_controls(script_name, data_names, model_names, init_seeds, world_size, num_experiments,
-                                         resume_mode, control_name)
-        script_name = [['{}_classifier_fed.py'.format(run)]]
-        control_name = [[['10000'], ['1'], ['1'], ['iid'], ['fix'], ['5'], ['0'], ['1']]]
-        data_names = [['CIFAR100']]
-        model_names = [['wresnet28x8']]
-        cifar100_controls = make_controls(script_name, data_names, model_names, init_seeds, world_size, num_experiments,
-                                         resume_mode, control_name)
+                                          resume_mode, control_name)
         controls = cifar10_controls + cifar100_controls
     else:
         raise ValueError('Not valid file')

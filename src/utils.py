@@ -115,7 +115,6 @@ def process_control():
     if cfg['control']['num_supervised'] == 'fs':
         cfg['control']['num_supervised'] = '-1'
     cfg['num_supervised'] = int(cfg['control']['num_supervised'])
-    cfg['loss_mode'] = cfg['control']['loss_mode']
     data_shape = {'CIFAR10': [3, 32, 32], 'CIFAR100': [3, 32, 32], 'SVHN': [3, 32, 32], 'STL10': [3, 96, 96]}
     cfg['data_shape'] = data_shape[cfg['data_name']]
     cfg['conv'] = {'hidden_size': [64, 128, 256, 512]}
@@ -125,8 +124,8 @@ def process_control():
     cfg['wresnet37x2'] = {'depth': 37, 'widen_factor': 2, 'drop_rate': 0.0}
     cfg['threshold'] = 0.95
     cfg['alpha'] = 0.75
-    cfg['mu'] = 2
     if 'num_clients' in cfg['control']:
+        cfg['loss_mode'] = cfg['control']['loss_mode']
         cfg['num_clients'] = int(cfg['control']['num_clients'])
         cfg['active_rate'] = float(cfg['control']['active_rate'])
         cfg['data_split_mode'] = cfg['control']['data_split_mode']
@@ -147,7 +146,7 @@ def process_control():
             cfg['client']['batch_size'] = {'train': 250, 'test': 500}
         cfg['local'] = {}
         cfg['local']['optimizer_name'] = 'SGD'
-        cfg['local']['lr'] = 1e-1
+        cfg['local']['lr'] = 3e-2
         cfg['local']['momentum'] = 0.9
         cfg['local']['weight_decay'] = 5e-4
         cfg['local']['nesterov'] = True
