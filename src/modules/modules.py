@@ -90,6 +90,7 @@ class Client:
         self.active = False
         self.buffer = None
         self.beta = torch.distributions.beta.Beta(torch.tensor([cfg['alpha']]), torch.tensor([cfg['alpha']]))
+        self.verbose = False
 
     def make_hard_pseudo_label(self, soft_pseudo_label):
         max_p, hard_pseudo_label = torch.max(soft_pseudo_label, dim=-1)
@@ -133,16 +134,19 @@ class Client:
                 acc = Accuracy(self.buffer, target)
                 new_target, mask = self.make_hard_pseudo_label(self.buffer)
                 if torch.all(~mask):
-                    print('Model: {} Accuracy: {:.3f}, Number of Labeled: 0({})'.format(cfg['model_tag'], acc,
-                                                                                        len(output)))
+                    if self.verbose:
+                        print('Model: {} Accuracy: {:.3f}, Number of Labeled: 0({})'.format(cfg['model_tag'], acc,
+                                                                                            len(output)))
                     return None
                 else:
                     self.weight = self.make_weight(new_target) if cfg['weight'] else None
                     new_acc = Accuracy(self.buffer[mask], target[mask])
                     num_labeled = int(mask.float().sum())
-                    print('Model: {} Accuracy: {:.3f} ({:.3f}), Number of Labeled: {}({})'.format(cfg['model_tag'], acc,
-                                                                                                  new_acc, num_labeled,
-                                                                                                  len(output)))
+                    if self.verbose:
+                        print('Model: {} Accuracy: {:.3f} ({:.3f}), Number of Labeled: {}({})'.format(cfg['model_tag'],
+                                                                                                      acc, new_acc,
+                                                                                                      num_labeled,
+                                                                                                      len(output)))
                     fix_dataset = copy.deepcopy(dataset)
                     fix_dataset.target = new_target.tolist()
                     mask = mask.tolist()

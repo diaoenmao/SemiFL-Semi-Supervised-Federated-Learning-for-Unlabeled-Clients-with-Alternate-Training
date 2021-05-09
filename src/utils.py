@@ -134,7 +134,7 @@ def process_control():
         cfg['weight'] = int(cfg['control']['weight'])
         cfg['server'] = {}
         cfg['server']['shuffle'] = {'train': True, 'test': False}
-        if cfg['num_supervised'] > 500:
+        if cfg['num_supervised'] > 1000:
             cfg['server']['batch_size'] = {'train': 250, 'test': 500}
         else:
             cfg['server']['batch_size'] = {'train': 10, 'test': 500}
@@ -174,7 +174,7 @@ def process_control():
         cfg[model_name]['nesterov'] = True
         cfg[model_name]['scheduler_name'] = 'CosineAnnealingLR'
         cfg[model_name]['num_epochs'] = 400
-        if cfg['num_supervised'] > 500 or cfg['num_supervised'] == -1:
+        if cfg['num_supervised'] > 1000 or cfg['num_supervised'] == -1:
             cfg[model_name]['batch_size'] = {'train': 250, 'test': 500}
         else:
             cfg[model_name]['batch_size'] = {'train': 10, 'test': 500}
