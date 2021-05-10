@@ -90,7 +90,7 @@ class Client:
         self.active = False
         self.buffer = None
         self.beta = torch.distributions.beta.Beta(torch.tensor([cfg['alpha']]), torch.tensor([cfg['alpha']]))
-        self.verbose = False
+        self.verbose = cfg['verbose']
 
     def make_hard_pseudo_label(self, soft_pseudo_label):
         max_p, hard_pseudo_label = torch.max(soft_pseudo_label, dim=-1)
@@ -165,29 +165,7 @@ class Client:
         return
 
     def train(self, dataset, lr, metric, logger):
-        if cfg['loss_mode'] == 'sup':
-            data_loader = make_data_loader({'train': dataset}, 'client')['train']
-            model = eval('models.{}().to(cfg["device"])'.format(cfg['model_name']))
-            model.load_state_dict(self.model_state_dict, strict=False)
-            self.optimizer_state_dict['param_groups'][0]['lr'] = lr
-            optimizer = make_optimizer(model, 'local')
-            optimizer.load_state_dict(self.optimizer_state_dict)
-            model.train(True)
-            for epoch in range(1, cfg['local']['num_epochs'] + 1):
-                for i, input in enumerate(data_loader):
-                    input = collate(input)
-                    input_size = input['data'].size(0)
-                    input['weight'] = self.weight
-                    input['loss_mode'] = cfg['loss_mode']
-                    input = to_device(input, cfg['device'])
-                    optimizer.zero_grad()
-                    output = model(input)
-                    output['loss'].backward()
-                    torch.nn.utils.clip_grad_norm_(model.parameters(), 1)
-                    optimizer.step()
-                    evaluation = metric.evaluate(metric.metric_name['train'], input, output)
-                    logger.append(evaluation, 'train', n=input_size)
-        elif cfg['loss_mode'] == 'fix':
+        if cfg['loss_mode'] == 'fix':
             fix_dataset, _ = dataset
             data_loader = make_data_loader({'train': fix_dataset}, 'client')['train']
             model = eval('models.{}().to(cfg["device"])'.format(cfg['model_name']))

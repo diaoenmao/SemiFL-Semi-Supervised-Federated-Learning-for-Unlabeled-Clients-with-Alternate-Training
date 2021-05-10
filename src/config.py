@@ -13,5 +13,5 @@ def process_args(args):
         control_name_list = args['control_name'].split('_')
         control_keys_list = list(cfg['control'].keys())
         cfg['control'] = {control_keys_list[i]: control_name_list[i] for i in range(len(control_name_list))}
-        cfg['control_name'] = '_'.join([cfg['control'][k] for k in cfg['control']])
+    cfg['control_name'] = '_'.join([cfg['control'][k] for k in cfg['control']])
     return
