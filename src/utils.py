@@ -132,7 +132,10 @@ def process_control():
         cfg['server'] = {}
         cfg['server']['shuffle'] = {'train': True, 'test': False}
         if cfg['num_supervised'] > 1000:
-            cfg['server']['batch_size'] = {'train': 250, 'test': 500}
+            if cfg['data_name'] == 'STL10':
+                cfg['server']['batch_size'] = {'train': 125, 'test': 250}
+            else:
+                cfg['server']['batch_size'] = {'train': 250, 'test': 500}
         else:
             cfg['server']['batch_size'] = {'train': 10, 'test': 500}
         cfg['client'] = {}
@@ -140,7 +143,10 @@ def process_control():
         if cfg['num_clients'] > 10:
             cfg['client']['batch_size'] = {'train': 10, 'test': 500}
         else:
-            cfg['client']['batch_size'] = {'train': 250, 'test': 500}
+            if cfg['data_name'] == 'STL10':
+                cfg['client']['batch_size'] = {'train': 125, 'test': 250}
+            else:
+                cfg['client']['batch_size'] = {'train': 250, 'test': 500}
         cfg['local'] = {}
         cfg['local']['optimizer_name'] = 'SGD'
         cfg['local']['lr'] = 3e-2
@@ -149,7 +155,10 @@ def process_control():
         cfg['local']['nesterov'] = True
         cfg['local']['num_epochs'] = cfg['local_epoch']
         cfg['global'] = {}
-        cfg['global']['batch_size'] = {'train': 250, 'test': 500}
+        if cfg['data_name'] == 'STL10':
+            cfg['global']['batch_size'] = {'train': 125, 'test': 250}
+        else:
+            cfg['global']['batch_size'] = {'train': 250, 'test': 500}
         cfg['global']['shuffle'] = {'train': True, 'test': False}
         if cfg['num_clients'] > 10:
             cfg['global']['num_epochs'] = 800
@@ -172,7 +181,10 @@ def process_control():
         cfg[model_name]['scheduler_name'] = 'CosineAnnealingLR'
         cfg[model_name]['num_epochs'] = 400
         if cfg['num_supervised'] > 1000 or cfg['num_supervised'] == -1:
-            cfg[model_name]['batch_size'] = {'train': 250, 'test': 500}
+            if cfg['data_name'] == 'STL10':
+                cfg[model_name]['batch_size'] = {'train': 125, 'test': 250}
+            else:
+                cfg[model_name]['batch_size'] = {'train': 250, 'test': 500}
         else:
             cfg[model_name]['batch_size'] = {'train': 10, 'test': 500}
     return

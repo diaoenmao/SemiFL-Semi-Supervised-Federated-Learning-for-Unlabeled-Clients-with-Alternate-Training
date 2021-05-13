@@ -94,7 +94,8 @@ class WideResNet(nn.Module):
                 output['loss'] += input['lam'] * loss_fn(mix_output, input['mix_target'][:, 0].detach()) + (
                         1 - input['lam']) * loss_fn(mix_output, input['mix_target'][:, 1].detach())
         else:
-            output['loss'] = loss_fn(output['target'], input['target'], input['weight'])
+            if not torch.any(input['target'] == -1):
+                output['loss'] = loss_fn(output['target'], input['target'], input['weight'])
         return output
 
 

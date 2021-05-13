@@ -1,7 +1,7 @@
 ---
 # control
 control:
-  num_supervised: '1000'
+  num_supervised: '4000'
   loss_mode: 'fix-mix'
   num_clients: '1'
   active_rate: '1'
@@ -10,7 +10,7 @@ control:
   gm: '0'
   weight: '1'
 # data
-data_name: SVHN
+data_name: CIFAR10
 model_name: wresnet28x2
 # experiment
 num_workers: 0
