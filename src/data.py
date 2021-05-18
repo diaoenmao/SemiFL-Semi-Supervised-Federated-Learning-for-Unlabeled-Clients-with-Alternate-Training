@@ -151,14 +151,14 @@ def non_iid(dataset, num_users):
                 data_split[i].extend(target_idx_split[target_i].pop(idx))
     elif data_split_mode_tag == 'd':
         beta = float(data_split_mode_list[-1])
+        dir = torch.distributions.dirichlet.Dirichlet(torch.tensor(beta).repeat(num_users))
         min_size = 0
         required_min_size = 25
         N = target.size(0)
+        data_split = [[] for _ in range(num_users)]
         while min_size < required_min_size:
-            data_split = [[] for _ in range(num_users)]
             for target_i in range(cfg['target_size']):
                 target_idx = torch.where(target == target_i)[0]
-                dir = torch.distributions.dirichlet.Dirichlet(torch.tensor(beta).repeat(num_users))
                 proportions = dir.sample()
                 proportions = torch.tensor(
                     [p * (len(data_split_idx) < (N / num_users)) for p, data_split_idx in zip(proportions, data_split)])

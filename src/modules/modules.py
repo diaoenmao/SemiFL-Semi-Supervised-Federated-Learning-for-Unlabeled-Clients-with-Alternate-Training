@@ -97,20 +97,9 @@ class Client:
         mask = max_p.ge(cfg['threshold'])
         return hard_pseudo_label, mask
 
-    def make_weight(self, target):
-        cls_indx, cls_counts = torch.unique(target, return_counts=True)
-        num_samples_per_cls = torch.zeros(cfg['target_size'], dtype=torch.float32)
-        num_samples_per_cls[cls_indx] = cls_counts.float()
-        beta = torch.tensor(0.999, dtype=torch.float32)
-        effective_num = 1.0 - beta.pow(num_samples_per_cls)
-        weight = (1.0 - beta) / effective_num
-        weight[torch.isinf(weight)] = 0
-        weight = weight / torch.sum(weight) * (weight > 0).float().sum()
-        return weight
 
     def make_dataset(self, dataset):
         if 'sup' in cfg['loss_mode']:
-            self.weight = self.make_weight(torch.tensor(dataset.target)) if cfg['weight'] else None
             return dataset
         elif 'fix' in cfg['loss_mode']:
             with torch.no_grad():
@@ -139,7 +128,6 @@ class Client:
                                                                                             len(output)))
                     return None
                 else:
-                    self.weight = self.make_weight(new_target) if cfg['weight'] else None
                     new_acc = Accuracy(self.buffer[mask], target[mask])
                     num_labeled = int(mask.float().sum())
                     if self.verbose:
@@ -178,7 +166,6 @@ class Client:
                 for i, input in enumerate(data_loader):
                     input = collate(input)
                     input_size = input['data'].size(0)
-                    input['weight'] = self.weight
                     input['loss_mode'] = cfg['loss_mode']
                     input = to_device(input, cfg['device'])
                     optimizer.zero_grad()
@@ -207,7 +194,6 @@ class Client:
                     input['lam'] = self.beta.sample()[0]
                     input['mix_data'] = (input['lam'] * input['data'] + (1 - input['lam']) * input['mix_data']).detach()
                     input['mix_target'] = torch.stack([input['target'], input['mix_target']], dim=-1)
-                    input['weight'] = self.weight
                     input['loss_mode'] = cfg['loss_mode']
                     input = to_device(input, cfg['device'])
                     optimizer.zero_grad()

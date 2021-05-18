@@ -136,34 +136,34 @@ process_args(args)
 #     print(test)
 #     exit()
 
-if __name__ == "__main__":
-    from torch.utils.data import RandomSampler
-
-    cfg['seed'] = 0
-    process_control()
-    server_dataset = fetch_dataset(cfg['data_name'])
-    client_dataset = fetch_dataset(cfg['data_name'])
-    cfg['data_size'] = len(server_dataset['train'])
-    cfg['num_iter'] = round(len(server_dataset['train']) / cfg[cfg['model_name']]['batch_size']['train'])
-    client_batch_size = cfg[cfg['model_name']]['batch_size']['train'] * cfg['mu']
-    print(cfg['num_iter'])
-    process_dataset(server_dataset)
-    server_dataset['train'], client_dataset['train'], supervised_idx = separate_dataset_su(server_dataset['train'],
-                                                                                           client_dataset['train'])
-    server_sampler = RandomSampler(server_dataset['train'], replacement=True, num_samples=cfg['data_size'])
-    server_data_loader = make_data_loader({'train': server_dataset['train']}, cfg['model_name'],
-                                          sampler={'train': server_sampler})['train']
-    client_sampler = RandomSampler(client_dataset['train'], replacement=True, num_samples=cfg['data_size'])
-    client_data_loader = make_data_loader({'train': client_dataset['train']}, cfg['model_name'],
-                                          batch_size={'train': client_batch_size},
-                                          sampler={'train': client_sampler})['train']
-    server_iter = iter(server_data_loader)
-    client_iter = iter(client_data_loader)
-    for i in range(cfg['num_iter']):
-        print(i)
-        server_input = server_iter.next()
-        client_input = client_iter.next()
-        server_input = collate(server_input)
-        client_input = collate(client_input)
-        print(server_input.keys())
-        print(client_input.keys())
+# if __name__ == "__main__":
+#     from torch.utils.data import RandomSampler
+#
+#     cfg['seed'] = 0
+#     process_control()
+#     server_dataset = fetch_dataset(cfg['data_name'])
+#     client_dataset = fetch_dataset(cfg['data_name'])
+#     cfg['data_size'] = len(server_dataset['train'])
+#     cfg['num_iter'] = round(len(server_dataset['train']) / cfg[cfg['model_name']]['batch_size']['train'])
+#     client_batch_size = cfg[cfg['model_name']]['batch_size']['train'] * cfg['mu']
+#     print(cfg['num_iter'])
+#     process_dataset(server_dataset)
+#     server_dataset['train'], client_dataset['train'], supervised_idx = separate_dataset_su(server_dataset['train'],
+#                                                                                            client_dataset['train'])
+#     server_sampler = RandomSampler(server_dataset['train'], replacement=True, num_samples=cfg['data_size'])
+#     server_data_loader = make_data_loader({'train': server_dataset['train']}, cfg['model_name'],
+#                                           sampler={'train': server_sampler})['train']
+#     client_sampler = RandomSampler(client_dataset['train'], replacement=True, num_samples=cfg['data_size'])
+#     client_data_loader = make_data_loader({'train': client_dataset['train']}, cfg['model_name'],
+#                                           batch_size={'train': client_batch_size},
+#                                           sampler={'train': client_sampler})['train']
+#     server_iter = iter(server_data_loader)
+#     client_iter = iter(client_data_loader)
+#     for i in range(cfg['num_iter']):
+#         print(i)
+#         server_input = server_iter.next()
+#         client_input = client_iter.next()
+#         server_input = collate(server_input)
+#         client_input = collate(client_input)
+#         print(server_input.keys())
+#         print(client_input.keys())

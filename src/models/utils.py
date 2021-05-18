@@ -29,9 +29,9 @@ def make_batchnorm(m, momentum, track_running_stats):
     return m
 
 
-def loss_fn(output, target, weight=None, reduction='mean'):
+def loss_fn(output, target, reduction='mean'):
     if target.dtype == torch.int64:
-        loss = F.cross_entropy(output, target, weight=weight, reduction=reduction)
+        loss = F.cross_entropy(output, target, reduction=reduction)
     else:
         loss = F.mse_loss(output, target, reduction=reduction)
     return loss
