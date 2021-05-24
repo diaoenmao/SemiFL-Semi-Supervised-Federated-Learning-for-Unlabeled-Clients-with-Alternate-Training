@@ -31,9 +31,10 @@ def main():
 def runExperiment():
     dataset = fetch_dataset(cfg['data_name'])
     process_dataset(dataset)
-    cfg[cfg['model_name']]['batch_size']['train'] = 2
-    cfg[cfg['model_name']]['shuffle']['train'] = False
-    data_loader = make_data_loader(dataset, cfg['model_name'])
+    cfg['summary'] = {}
+    cfg['summary']['batch_size'] = {'train': 2, 'test': 2}
+    cfg['summary']['shuffle'] = {'train': False, 'test': False}
+    data_loader = make_data_loader(dataset, 'summary')
     model = eval('models.{}().to(cfg["device"])'.format(cfg['model_name']))
     summary = summarize(data_loader['train'], model)
     content, total = parse_summary(summary)

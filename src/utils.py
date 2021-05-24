@@ -117,6 +117,7 @@ def process_control():
     cfg['num_supervised'] = int(cfg['control']['num_supervised'])
     data_shape = {'CIFAR10': [3, 32, 32], 'CIFAR100': [3, 32, 32], 'SVHN': [3, 32, 32]}
     cfg['data_shape'] = data_shape[cfg['data_name']]
+    cfg['resnet'] = {'hidden_size': [64, 128, 256, 512]}
     cfg['wresnet28x2'] = {'depth': 28, 'widen_factor': 2, 'drop_rate': 0.0}
     cfg['threshold'] = 0.95
     cfg['alpha'] = 0.75
@@ -135,10 +136,7 @@ def process_control():
             cfg['server']['batch_size'] = {'train': 10, 'test': 500}
         cfg['client'] = {}
         cfg['client']['shuffle'] = {'train': True, 'test': False}
-        if cfg['num_clients'] > 10:
-            cfg['client']['batch_size'] = {'train': 10, 'test': 500}
-        else:
-            cfg['client']['batch_size'] = {'train': 250, 'test': 500}
+        cfg['client']['batch_size'] = {'train': 10, 'test': 500}
         cfg['local'] = {}
         cfg['local']['optimizer_name'] = 'SGD'
         cfg['local']['lr'] = 3e-2
