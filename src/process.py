@@ -247,11 +247,12 @@ def make_df_history(extracted_processed_result_history):
 
 
 def make_vis(df):
-    data_split_mode_dict = {'iid': 'IID', 'non-iid-l-2': 'Non-IID, $K=2$', 'non-iid-d-0.1': 'Non-IID, $Dir(0.1)$',
-                            'non-iid-d-0.3': 'Non-IID, $Dir(0.3)$'}
-    color = {'5_0.5': 'red', '1_0.5': 'orange', '5_0': 'dodgerblue', '5_0.9': 'green', '5_0.5_nomixup': 'green',
+    data_split_mode_dict = {'iid': 'IID', 'non-iid-l-2': 'Non-IID, $K=2$',
+                            'non-iid-d-0.1': 'Non-IID, $\operatorname{Dir}(0.1)$',
+                            'non-iid-d-0.3': 'Non-IID, $\operatorname{Dir}(0.3)$'}
+    color = {'5_0.5': 'red', '1_0.5': 'orange', '5_0': 'dodgerblue', '5_0.9': 'blue', '5_0.5_nomixup': 'green',
              'iid': 'red', 'non-iid-l-2': 'orange', 'non-iid-d-0.1': 'dodgerblue', 'non-iid-d-0.3': 'green'}
-    linestyle = {'5_0.5': '-', '1_0.5': '--', '5_0': '-.', '5_0.5_nomixup': ':',
+    linestyle = {'5_0.5': '-', '1_0.5': '--', '5_0': ':', '5_0.5_nomixup': '-.', '5_0.9': (0, (1, 5)),
                  'iid': '-', 'non-iid-l-2': '--', 'non-iid-d-0.1': '-.', 'non-iid-d-0.3': ':'}
     loc_dict = {'Accuracy': 'lower right', 'Loss': 'upper right'}
     fontsize = {'legend': 16, 'label': 16, 'ticks': 16}
@@ -311,10 +312,10 @@ def make_vis(df):
                     fig[fig_name] = plt.figure(fig_name)
                     local_epoch, gm = index.split('_')
                     if loss_mode == 'fix':
-                        label_name = '$E={}$, $\mu={}$, No mixup'.format(local_epoch, gm)
+                        label_name = '$E={}$, $\\beta_g={}$, No mixup'.format(local_epoch, gm)
                         style = '{}_nomixup'.format(index)
                     else:
-                        label_name = '$E={}$, $\mu={}$'.format(local_epoch, gm)
+                        label_name = '$E={}$, $\\beta_g={}$'.format(local_epoch, gm)
                         style = index
                     plt.plot(x, y, color=color[style], linestyle=linestyle[style], label=label_name)
                     plt.fill_between(x, (y - yerr), (y + yerr), color=color[style], alpha=.1)
@@ -330,6 +331,10 @@ def make_vis(df):
         if len(handles) == 4:
             handles = [handles[0], handles[3], handles[2], handles[1]]
             labels = [labels[0], labels[3], labels[2], labels[1]]
+            plt.legend(handles, labels, loc=loc_dict[metric_name], fontsize=fontsize['legend'])
+        if len(handles) == 5:
+            handles = [handles[0], handles[4], handles[2], handles[3], handles[1]]
+            labels = [labels[0], labels[4], labels[2], labels[3], labels[1]]
             plt.legend(handles, labels, loc=loc_dict[metric_name], fontsize=fontsize['legend'])
     for fig_name in fig:
         fig[fig_name] = plt.figure(fig_name)

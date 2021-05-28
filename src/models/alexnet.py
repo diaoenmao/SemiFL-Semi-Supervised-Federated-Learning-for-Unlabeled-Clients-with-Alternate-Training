@@ -61,10 +61,10 @@ class AlexNet(torch.nn.Module):
         return output
 
 
-def alexnet(track=False):
+def alexnet():
     data_shape = cfg['data_shape']
     target_size = cfg['target_size']
     model = AlexNet(data_shape, target_size)
     model.apply(init_param)
-    model.apply(lambda m: make_batchnorm(m, momentum=None, track_running_stats=track))
+    model.apply(lambda m: make_batchnorm(m, momentum=None, track_running_stats=False))
     return model

@@ -73,6 +73,7 @@ def runExperiment():
         logger = make_logger('output/runs/train_{}'.format(cfg['model_tag']))
     for epoch in range(last_epoch, cfg['global']['num_epochs'] + 1):
         train_client(batchnorm_dataset, client_dataset['train'], server, client, optimizer, metric, logger, epoch)
+        # train_client(server_dataset['train'], client_dataset['train'], server, client, optimizer, metric, logger, epoch)
         logger.reset()
         server.update(client)
         train_server(server_dataset['train'], server, optimizer, metric, logger, epoch)

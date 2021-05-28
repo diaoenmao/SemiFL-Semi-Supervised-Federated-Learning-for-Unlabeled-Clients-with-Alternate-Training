@@ -117,6 +117,7 @@ def process_control():
     cfg['num_supervised'] = int(cfg['control']['num_supervised'])
     data_shape = {'CIFAR10': [3, 32, 32], 'CIFAR100': [3, 32, 32], 'SVHN': [3, 32, 32]}
     cfg['data_shape'] = data_shape[cfg['data_name']]
+    cfg['conv'] = {'hidden_size': [32, 64]}
     cfg['resnet'] = {'hidden_size': [64, 128, 256, 512]}
     cfg['wresnet28x2'] = {'depth': 28, 'widen_factor': 2, 'drop_rate': 0.0}
     cfg['threshold'] = 0.95
