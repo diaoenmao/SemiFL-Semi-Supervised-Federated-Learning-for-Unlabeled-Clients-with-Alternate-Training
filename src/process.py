@@ -44,41 +44,47 @@ def make_control_list(file):
         svhn_controls = make_controls(data_names, model_names, control_name)
         controls = cifar10_controls + svhn_controls
     elif file == 'cd':
-        control_name = [[['250', '4000'], ['fix-mix'], ['100'], ['0.1'], ['iid', 'non-iid-l-2'], ['5'], ['0.5']]]
+        control_name = [[['250', '4000'], ['fix-mix'], ['100'], ['0.1'], ['iid', 'non-iid-l-2'], ['5'], ['0.5'], ['1']]]
         data_names = [['CIFAR10']]
         model_names = [['wresnet28x2']]
         cifar10_controls = make_controls(data_names, model_names, control_name)
-        control_name = [[['250', '1000'], ['fix-mix'], ['100'], ['0.1'], ['iid', 'non-iid-l-2'], ['5'], ['0.5']]]
+        control_name = [[['250', '1000'], ['fix-mix'], ['100'], ['0.1'], ['iid', 'non-iid-l-2'], ['5'], ['0.5'], ['1']]]
         data_names = [['SVHN']]
         model_names = [['wresnet28x2']]
         svhn_controls = make_controls(data_names, model_names, control_name)
         controls = cifar10_controls + svhn_controls
     elif file == 'ub':
         control_name = [
-            [['250', '4000'], ['fix-mix'], ['100'], ['0.1'], ['non-iid-d-0.1', 'non-iid-d-0.3'], ['5'], ['0.5']]]
+            [['250', '4000'], ['fix-mix'], ['100'], ['0.1'], ['non-iid-d-0.1', 'non-iid-d-0.3'], ['5'], ['0.5'], ['1']]]
         data_names = [['CIFAR10']]
         model_names = [['wresnet28x2']]
         cifar10_controls = make_controls(data_names, model_names, control_name)
         control_name = [
-            [['250', '1000'], ['fix-mix'], ['100'], ['0.1'], ['non-iid-d-0.1', 'non-iid-d-0.3'], ['5'], ['0.5']]]
+            [['250', '1000'], ['fix-mix'], ['100'], ['0.1'], ['non-iid-d-0.1', 'non-iid-d-0.3'], ['5'], ['0.5'], ['1']]]
         data_names = [['SVHN']]
         model_names = [['wresnet28x2']]
         svhn_controls = make_controls(data_names, model_names, control_name)
         controls = cifar10_controls + svhn_controls
     elif file == 'loss':
-        control_name = [[['4000'], ['fix'], ['100'], ['0.1'], ['iid', 'non-iid-l-2'], ['5'], ['0.5']]]
+        control_name = [[['4000'], ['fix'], ['100'], ['0.1'], ['iid', 'non-iid-l-2'], ['5'], ['0.5'], ['1']]]
         data_names = [['CIFAR10']]
         model_names = [['wresnet28x2']]
         cifar10_controls = make_controls(data_names, model_names, control_name)
         controls = cifar10_controls
     elif file == 'local-epoch':
-        control_name = [[['4000'], ['fix-mix'], ['100'], ['0.1'], ['iid', 'non-iid-l-2'], ['1'], ['0.5']]]
+        control_name = [[['4000'], ['fix-mix'], ['100'], ['0.1'], ['iid', 'non-iid-l-2'], ['1'], ['0.5'], ['1']]]
         data_names = [['CIFAR10']]
         model_names = [['wresnet28x2']]
         cifar10_controls = make_controls(data_names, model_names, control_name)
         controls = cifar10_controls
     elif file == 'gm':
-        control_name = [[['4000'], ['fix-mix'], ['100'], ['0.1'], ['iid', 'non-iid-l-2'], ['5'], ['0']]]
+        control_name = [[['4000'], ['fix-mix'], ['100'], ['0.1'], ['iid', 'non-iid-l-2'], ['5'], ['0'], ['1']]]
+        data_names = [['CIFAR10']]
+        model_names = [['wresnet28x2']]
+        cifar10_controls = make_controls(data_names, model_names, control_name)
+        controls = cifar10_controls
+    elif file == 'all_sbn':
+        control_name = [[['250', '4000'], ['fix-mix'], ['100'], ['0.1'], ['iid', 'non-iid-l-2'], ['5'], ['0.5'], ['0']]]
         data_names = [['CIFAR10']]
         model_names = [['wresnet28x2']]
         cifar10_controls = make_controls(data_names, model_names, control_name)
@@ -96,8 +102,9 @@ def main():
     loss_control_list = make_control_list('loss')
     local_epoch_control_list = make_control_list('local-epoch')
     gm_control_list = make_control_list('gm')
+    all_sbn_control_list = make_control_list('all_sbn')
     controls = fs_control_list + ps_control_list + cd_control_list + ub_control_list + loss_control_list + \
-               local_epoch_control_list + gm_control_list
+               local_epoch_control_list + gm_control_list + all_sbn_control_list
     processed_result_exp, processed_result_history = process_result(controls)
     with open('{}/processed_result_exp.json'.format(result_path), 'w') as fp:
         json.dump(processed_result_exp, fp, indent=2)
@@ -199,10 +206,10 @@ def make_df_exp(extracted_processed_result_exp):
             df_name = '_'.join([data_name, model_name, num_supervised])
         else:
             data_name, model_name, num_supervised, loss_mode, num_clients, active_rate, data_split_mode, \
-            local_epoch, gm = control
+            local_epoch, gm, all_sbn, = control
             index_name = ['_'.join([local_epoch, gm])]
             df_name = '_'.join(
-                [data_name, model_name, num_supervised, loss_mode, num_clients, active_rate, data_split_mode])
+                [data_name, model_name, num_supervised, loss_mode, num_clients, active_rate, data_split_mode, all_sbn])
         df[df_name].append(pd.DataFrame(data=extracted_processed_result_exp[exp_name], index=index_name))
     startrow = 0
     writer = pd.ExcelWriter('{}/result_exp.xlsx'.format(result_path), engine='xlsxwriter')
@@ -228,11 +235,12 @@ def make_df_history(extracted_processed_result_history):
                     pd.DataFrame(data=extracted_processed_result_history[exp_name][k].reshape(1, -1), index=index_name))
         else:
             data_name, model_name, num_supervised, loss_mode, num_clients, active_rate, data_split_mode, \
-            local_epoch, gm = control
+            local_epoch, gm, all_sbn = control
             index_name = ['_'.join([local_epoch, gm])]
             for k in extracted_processed_result_history[exp_name]:
                 df_name = '_'.join(
-                    [data_name, model_name, num_supervised, loss_mode, num_clients, active_rate, data_split_mode, k])
+                    [data_name, model_name, num_supervised, loss_mode, num_clients, active_rate, data_split_mode, all_sbn,
+                     k])
                 df[df_name].append(
                     pd.DataFrame(data=extracted_processed_result_history[exp_name][k].reshape(1, -1), index=index_name))
     startrow = 0
@@ -279,12 +287,12 @@ def make_vis(df):
                 plt.yticks(fontsize=fontsize['ticks'])
 
         else:
-            data_name, model_name, num_supervised, loss_mode, num_clients, active_rate, data_split_mode, \
+            data_name, model_name, num_supervised, loss_mode, num_clients, active_rate, data_split_mode, all_sbn, \
             metric_name, stat = df_name.split('_')
             if stat == 'std':
                 continue
             df_name_std = '_'.join(
-                [data_name, model_name, num_supervised, loss_mode, num_clients, active_rate, data_split_mode,
+                [data_name, model_name, num_supervised, loss_mode, num_clients, active_rate, data_split_mode, all_sbn,
                  metric_name, 'std'])
             for ((index, row), (_, row_std)) in zip(df[df_name].iterrows(), df[df_name_std].iterrows()):
                 y = row.to_numpy()
@@ -292,7 +300,7 @@ def make_vis(df):
                 x = np.arange(len(y))
                 if index == '5_0.5' and loss_mode == 'fix-mix':
                     fig_name = '_'.join(
-                        [data_name, model_name, num_supervised, loss_mode, num_clients, active_rate, metric_name])
+                        [data_name, model_name, num_supervised, loss_mode, num_clients, active_rate, all_sbn, metric_name])
                     reorder_fig.append(fig_name)
                     style = data_split_mode
                     fig[fig_name] = plt.figure(fig_name)
@@ -306,7 +314,7 @@ def make_vis(df):
                     plt.yticks(fontsize=fontsize['ticks'])
                 if data_split_mode in ['iid', 'non-iid-l-2']:
                     fig_name = '_'.join(
-                        [data_name, model_name, num_supervised, num_clients, active_rate, data_split_mode,
+                        [data_name, model_name, num_supervised, num_clients, active_rate, data_split_mode, all_sbn,
                          metric_name])
                     reorder_fig.append(fig_name)
                     fig[fig_name] = plt.figure(fig_name)
@@ -325,7 +333,8 @@ def make_vis(df):
                     plt.xticks(fontsize=fontsize['ticks'])
                     plt.yticks(fontsize=fontsize['ticks'])
     for fig_name in reorder_fig:
-        data_name, model_name, num_supervised, loss_mode, num_clients, active_rate, metric_name = fig_name.split('_')
+        data_name, model_name, num_supervised, loss_mode, num_clients, active_rate, all_sbn, metric_name = fig_name.split(
+            '_')
         plt.figure(fig_name)
         handles, labels = plt.gca().get_legend_handles_labels()
         if len(handles) == 4:

@@ -129,6 +129,7 @@ def process_control():
         cfg['data_split_mode'] = cfg['control']['data_split_mode']
         cfg['local_epoch'] = int(cfg['control']['local_epoch'])
         cfg['gm'] = float(cfg['control']['gm'])
+        cfg['all_sbn'] = int(cfg['control']['all_sbn'])
         cfg['server'] = {}
         cfg['server']['shuffle'] = {'train': True, 'test': False}
         if cfg['num_supervised'] > 1000:
