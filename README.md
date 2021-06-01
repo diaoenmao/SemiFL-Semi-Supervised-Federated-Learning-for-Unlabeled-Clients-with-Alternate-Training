@@ -1,5 +1,5 @@
-# SemiFL: Communication Efficient Semi-SupervisedFederated Learning with Unlabeled Clients
-This is an implementation of SemiFL: Communication Efficient Semi-SupervisedFederated Learning with Unlabeled Clients
+# SemiFL: Communication Efficient Semi-Supervised Federated Learning with Unlabeled Clients
+This is an implementation of SemiFL: Communication Efficient Semi-Supervised Federated Learning with Unlabeled Clients
  
 ## Requirements
 See requirements.txt
