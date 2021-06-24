@@ -134,6 +134,32 @@ def main():
         cifar10_controls = make_controls(script_name, data_names, model_names, init_seeds, world_size, num_experiments,
                                          resume_mode, control_name)
         controls = cifar10_controls
+    elif file == 'b':
+        script_name = [['{}_classifier_fed.py'.format(run)]]
+        control_name = [[['250', '4000'], ['fix-mix'], ['1'], ['1'], ['iid'], ['5'], ['0.5'], ['1']]]
+        data_names = [['CIFAR10']]
+        model_names = [['wresnet28x2']]
+        cifar10_controls = make_controls(script_name, data_names, model_names, init_seeds, world_size, num_experiments,
+                                         resume_mode, control_name)
+        control_name = [[['250', '1000'], ['fix-mix'], ['1'], ['1'], ['iid'], ['5'], ['0.5'], ['1']]]
+        data_names = [['SVHN']]
+        model_names = [['wresnet28x2']]
+        svhn_controls = make_controls(script_name, data_names, model_names, init_seeds, world_size, num_experiments,
+                                      resume_mode, control_name)
+        controls = cifar10_controls + svhn_controls
+    elif file == 'cs':
+        script_name = [['{}_classifier_fed.py'.format(run)]]
+        control_name = [[['250', '4000'], ['fix-mix'], ['10'], ['1'], ['iid', 'non-iid-l-2'], ['5'], ['0.5'], ['1']]]
+        data_names = [['CIFAR10']]
+        model_names = [['wresnet28x2']]
+        cifar10_controls = make_controls(script_name, data_names, model_names, init_seeds, world_size, num_experiments,
+                                         resume_mode, control_name)
+        control_name = [[['250', '1000'], ['fix-mix'], ['10'], ['1'], ['iid', 'non-iid-l-2'], ['5'], ['0.5'], ['1']]]
+        data_names = [['SVHN']]
+        model_names = [['wresnet28x2']]
+        svhn_controls = make_controls(script_name, data_names, model_names, init_seeds, world_size, num_experiments,
+                                      resume_mode, control_name)
+        controls = cifar10_controls + svhn_controls
     else:
         raise ValueError('Not valid file')
     s = '#!/bin/bash\n'

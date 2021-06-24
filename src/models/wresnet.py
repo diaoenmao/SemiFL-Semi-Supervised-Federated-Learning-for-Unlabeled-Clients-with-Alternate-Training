@@ -70,11 +70,11 @@ class WideResNet(nn.Module):
         blocks.append(nn.AdaptiveAvgPool2d(1))
         blocks.append(nn.Flatten())
         self.blocks = nn.Sequential(*blocks)
-        self.classifer = nn.Linear(hidden_size[-1], num_classes)
+        self.classifier = nn.Linear(hidden_size[-1], num_classes)
 
     def f(self, x):
         x = self.blocks(x)
-        x = self.classifer(x)
+        x = self.classifier(x)
         return x
 
     def forward(self, input):
