@@ -10,9 +10,9 @@ class Block(nn.Module):
 
     def __init__(self, in_planes, planes, stride):
         super(Block, self).__init__()
-        self.n1 = nn.BatchNorm2d(in_planes)
+        self.n1 = nn.GroupNorm(4, in_planes)
         self.conv1 = nn.Conv2d(in_planes, planes, kernel_size=3, stride=stride, padding=1, bias=False)
-        self.n2 = nn.BatchNorm2d(planes)
+        self.n2 = nn.GroupNorm(4, planes)
         self.conv2 = nn.Conv2d(planes, planes, kernel_size=3, stride=1, padding=1, bias=False)
         if stride != 1 or in_planes != self.expansion * planes:
             self.shortcut = nn.Conv2d(in_planes, self.expansion * planes, kernel_size=1, stride=stride, bias=False)
@@ -31,11 +31,11 @@ class Bottleneck(nn.Module):
 
     def __init__(self, in_planes, planes, stride):
         super(Bottleneck, self).__init__()
-        self.n1 = nn.BatchNorm2d(in_planes)
+        self.n1 = nn.GroupNorm(4, in_planes)
         self.conv1 = nn.Conv2d(in_planes, planes, kernel_size=1, bias=False)
-        self.n2 = nn.BatchNorm2d(planes)
+        self.n2 = nn.GroupNorm(4, planes)
         self.conv2 = nn.Conv2d(planes, planes, kernel_size=3, stride=stride, padding=1, bias=False)
-        self.n3 = nn.BatchNorm2d(planes)
+        self.n3 = nn.GroupNorm(4, planes)
         self.conv3 = nn.Conv2d(planes, self.expansion * planes, kernel_size=1, bias=False)
 
         if stride != 1 or in_planes != self.expansion * planes:
@@ -51,7 +51,7 @@ class Bottleneck(nn.Module):
         return out
 
 
-class ResNet(nn.Module):
+class ResNetGN(nn.Module):
     def __init__(self, data_shape, hidden_size, block, num_blocks, target_size):
         super().__init__()
         self.in_planes = hidden_size[0]
@@ -60,7 +60,7 @@ class ResNet(nn.Module):
         self.layer2 = self._make_layer(block, hidden_size[1], num_blocks[1], stride=2)
         self.layer3 = self._make_layer(block, hidden_size[2], num_blocks[2], stride=2)
         self.layer4 = self._make_layer(block, hidden_size[3], num_blocks[3], stride=2)
-        self.n4 = nn.BatchNorm2d(hidden_size[3] * block.expansion)
+        self.n4 = nn.GroupNorm(4, hidden_size[3] * block.expansion)
         self.linear = nn.Linear(hidden_size[3] * block.expansion, target_size)
 
     def _make_layer(self, block, planes, num_blocks, stride):
@@ -104,21 +104,10 @@ class ResNet(nn.Module):
         return output
 
 
-def resnet18(track=False):
+def resnet9gn(track=False):
     data_shape = cfg['data_shape']
     target_size = cfg['target_size']
-    hidden_size = cfg['resnet18']['hidden_size']
-    model = ResNet(data_shape, hidden_size, Block, [2, 2, 2, 2], target_size)
+    hidden_size = cfg['resnet9gn']['hidden_size']
+    model = ResNetGN(data_shape, hidden_size, Block, [1, 1, 1, 1], target_size)
     model.apply(init_param)
-    model.apply(lambda m: make_batchnorm(m, momentum=None, track_running_stats=track))
-    return model
-
-
-def resnet9(track=False):
-    data_shape = cfg['data_shape']
-    target_size = cfg['target_size']
-    hidden_size = cfg['resnet9']['hidden_size']
-    model = ResNet(data_shape, hidden_size, Block, [1, 1, 1, 1], target_size)
-    model.apply(init_param)
-    model.apply(lambda m: make_batchnorm(m, momentum=None, track_running_stats=track))
     return model
