@@ -27,22 +27,33 @@ def make_control_list(file):
     if file == 'fs':
         control_name = [[['fs']]]
         data_names = [['CIFAR10']]
-        model_names = [['wresnet28x2']]
+        model_names = [['resnet9', 'resnet9gn', 'wresnet28x2']]
         cifar10_controls = make_controls(data_names, model_names, control_name)
         data_names = [['SVHN']]
         model_names = [['wresnet28x2']]
         svhn_controls = make_controls(data_names, model_names, control_name)
-        controls = cifar10_controls + svhn_controls
+        data_names = [['CIFAR100']]
+        model_names = [['wresnet28x2']]
+        cifar100_controls = make_controls(data_names, model_names, control_name)
+        controls = cifar10_controls + svhn_controls + cifar100_controls
     elif file == 'ps':
         control_name = [[['250', '4000']]]
         data_names = [['CIFAR10']]
         model_names = [['wresnet28x2']]
-        cifar10_controls = make_controls(data_names, model_names, control_name)
+        cifar10_controls_1 = make_controls(data_names, model_names, control_name)
+        control_name = [[['5000']]]
+        data_names = [['CIFAR10']]
+        model_names = [['resnet9', 'resnet9gn']]
+        cifar10_controls_2 = make_controls(data_names, model_names, control_name)
         control_name = [[['250', '1000']]]
         data_names = [['SVHN']]
         model_names = [['wresnet28x2']]
         svhn_controls = make_controls(data_names, model_names, control_name)
-        controls = cifar10_controls + svhn_controls
+        control_name = [[['2500', '10000']]]
+        data_names = [['CIFAR100']]
+        model_names = [['wresnet28x2']]
+        cifar100_controls = make_controls(data_names, model_names, control_name)
+        controls = cifar10_controls_1 + cifar10_controls_2 + svhn_controls + cifar100_controls
     elif file == 'cd':
         control_name = [[['250', '4000'], ['fix-mix'], ['100'], ['0.1'], ['iid', 'non-iid-l-2'], ['5'], ['0.5'], ['1']]]
         data_names = [['CIFAR10']]
@@ -52,7 +63,12 @@ def make_control_list(file):
         data_names = [['SVHN']]
         model_names = [['wresnet28x2']]
         svhn_controls = make_controls(data_names, model_names, control_name)
-        controls = cifar10_controls + svhn_controls
+        control_name = [[['2500', '10000'], ['fix-mix'], ['100'], ['0.1'], ['iid', 'non-iid-l-2'], ['5'], ['0.5'],
+                         ['1']]]
+        data_names = [['CIFAR100']]
+        model_names = [['wresnet28x2']]
+        cifar100_controls = make_controls(data_names, model_names, control_name)
+        controls = cifar10_controls + svhn_controls + cifar100_controls
     elif file == 'ub':
         control_name = [
             [['250', '4000'], ['fix-mix'], ['100'], ['0.1'], ['non-iid-d-0.1', 'non-iid-d-0.3'], ['5'], ['0.5'], ['1']]]
@@ -64,7 +80,12 @@ def make_control_list(file):
         data_names = [['SVHN']]
         model_names = [['wresnet28x2']]
         svhn_controls = make_controls(data_names, model_names, control_name)
-        controls = cifar10_controls + svhn_controls
+        control_name = [[['2500', '10000'], ['fix-mix'], ['100'], ['0.1'], ['non-iid-d-0.1', 'non-iid-d-0.3'], ['5'],
+                         ['0.5'], ['1']]]
+        data_names = [['CIFAR100']]
+        model_names = [['wresnet28x2']]
+        cifar100_controls = make_controls(data_names, model_names, control_name)
+        controls = cifar10_controls + svhn_controls + cifar100_controls
     elif file == 'loss':
         control_name = [[['4000'], ['fix'], ['100'], ['0.1'], ['iid', 'non-iid-l-2'], ['5'], ['0.5'], ['1']]]
         data_names = [['CIFAR10']]
@@ -89,6 +110,22 @@ def make_control_list(file):
         model_names = [['wresnet28x2']]
         cifar10_controls = make_controls(data_names, model_names, control_name)
         controls = cifar10_controls
+    elif file == 'ssbn':
+        control_name = [[['250', '4000'], ['fix-mix'], ['100'], ['0.1'], ['iid', 'non-iid-l-2'], ['5'], ['0.5'], ['0']]]
+        data_names = [['CIFAR10']]
+        model_names = [['wresnet28x2']]
+        cifar10_controls = make_controls(data_names, model_names, control_name)
+        controls = cifar10_controls
+    elif file == 'ablation':
+        control_name = [[['5000'], ['fix'], ['100'], ['0.05'], ['iid', 'non-iid-l-2'], ['5'], ['0'], ['1']]]
+        data_names = [['CIFAR10']]
+        model_names = [['resnet9', 'resnet9gn']]
+        cifar10_controls_1 = make_controls(data_names, model_names, control_name)
+        control_name = [[['5000'], ['fix'], ['100'], ['0.1'], ['iid', 'non-iid-l-2'], ['5'], ['0'], ['1']]]
+        data_names = [['CIFAR10']]
+        model_names = [['resnet9', 'resnet9gn']]
+        cifar10_controls_2 = make_controls(data_names, model_names, control_name)
+        controls = cifar10_controls_1 + cifar10_controls_2
     else:
         raise ValueError('Not valid file')
     return controls
@@ -102,9 +139,10 @@ def main():
     loss_control_list = make_control_list('loss')
     local_epoch_control_list = make_control_list('local-epoch')
     gm_control_list = make_control_list('gm')
-    all_sbn_control_list = make_control_list('all_sbn')
+    ssbn_control_list = make_control_list('ssbn')
+    ablation_control_list = make_control_list('ablation')
     controls = fs_control_list + ps_control_list + cd_control_list + ub_control_list + loss_control_list + \
-               local_epoch_control_list + gm_control_list + all_sbn_control_list
+               local_epoch_control_list + gm_control_list + ssbn_control_list + ablation_control_list
     processed_result_exp, processed_result_history = process_result(controls)
     with open('{}/processed_result_exp.json'.format(result_path), 'w') as fp:
         json.dump(processed_result_exp, fp, indent=2)
@@ -239,7 +277,8 @@ def make_df_history(extracted_processed_result_history):
             index_name = ['_'.join([local_epoch, gm])]
             for k in extracted_processed_result_history[exp_name]:
                 df_name = '_'.join(
-                    [data_name, model_name, num_supervised, loss_mode, num_clients, active_rate, data_split_mode, all_sbn,
+                    [data_name, model_name, num_supervised, loss_mode, num_clients, active_rate, data_split_mode,
+                     all_sbn,
                      k])
                 df[df_name].append(
                     pd.DataFrame(data=extracted_processed_result_history[exp_name][k].reshape(1, -1), index=index_name))
@@ -259,9 +298,10 @@ def make_vis(df):
                             'non-iid-d-0.1': 'Non-IID, $\operatorname{Dir}(0.1)$',
                             'non-iid-d-0.3': 'Non-IID, $\operatorname{Dir}(0.3)$'}
     color = {'5_0.5': 'red', '1_0.5': 'orange', '5_0': 'dodgerblue', '5_0.9': 'blue', '5_0.5_nomixup': 'green',
-             'iid': 'red', 'non-iid-l-2': 'orange', 'non-iid-d-0.1': 'dodgerblue', 'non-iid-d-0.3': 'green'}
-    linestyle = {'5_0.5': '-', '1_0.5': '--', '5_0': ':', '5_0.5_nomixup': '-.', '5_0.9': (0, (1, 5)),
-                 'iid': '-', 'non-iid-l-2': '--', 'non-iid-d-0.1': '-.', 'non-iid-d-0.3': ':'}
+             '5_0_nomixup': 'green', 'iid': 'red', 'non-iid-l-2': 'orange', 'non-iid-d-0.1': 'dodgerblue',
+             'non-iid-d-0.3': 'green'}
+    linestyle = {'5_0.5': '-', '1_0.5': '--', '5_0': ':', '5_0.5_nomixup': '-.', '5_0_nomixup': '-.',
+                 '5_0.9': (0, (1, 5)), 'iid': '-', 'non-iid-l-2': '--', 'non-iid-d-0.1': '-.', 'non-iid-d-0.3': ':'}
     loc_dict = {'Accuracy': 'lower right', 'Loss': 'upper right'}
     fontsize = {'legend': 16, 'label': 16, 'ticks': 16}
     fig = {}
@@ -300,7 +340,8 @@ def make_vis(df):
                 x = np.arange(len(y))
                 if index == '5_0.5' and loss_mode == 'fix-mix':
                     fig_name = '_'.join(
-                        [data_name, model_name, num_supervised, loss_mode, num_clients, active_rate, all_sbn, metric_name])
+                        [data_name, model_name, num_supervised, loss_mode, num_clients, active_rate, all_sbn,
+                         metric_name])
                     reorder_fig.append(fig_name)
                     style = data_split_mode
                     fig[fig_name] = plt.figure(fig_name)

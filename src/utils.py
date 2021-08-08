@@ -159,12 +159,12 @@ def process_control():
         cfg['global']['batch_size'] = {'train': 250, 'test': 500}
         cfg['global']['shuffle'] = {'train': True, 'test': False}
         if cfg['num_clients'] > 10:
-            if 'resnet9' in cfg['model_name']:
+            if 'resnet9' in cfg['model_name'] and cfg['active_rate'] == 0.05:
                 cfg['global']['num_epochs'] = 200
             else:
                 cfg['global']['num_epochs'] = 800
         else:
-            if 'resnet9' in cfg['model_name']:
+            if 'resnet9' in cfg['model_name'] and cfg['active_rate'] == 0.05:
                 cfg['global']['num_epochs'] = 200
             else:
                 cfg['global']['num_epochs'] = 400
