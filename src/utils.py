@@ -124,6 +124,7 @@ def process_control():
     cfg['resnet9gn'] = {'hidden_size': [64, 128, 256, 512]}
     cfg['resnet18'] = {'hidden_size': [64, 128, 256, 512]}
     cfg['wresnet28x2'] = {'depth': 28, 'widen_factor': 2, 'drop_rate': 0.0}
+    cfg['wresnet28x8'] = {'depth': 28, 'widen_factor': 8, 'drop_rate': 0.0}
     cfg['threshold'] = 0.95
     cfg['alpha'] = 0.75
     if 'num_clients' in cfg['control']:

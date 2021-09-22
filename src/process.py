@@ -33,7 +33,7 @@ def make_control_list(file):
         model_names = [['wresnet28x2']]
         svhn_controls = make_controls(data_names, model_names, control_name)
         data_names = [['CIFAR100']]
-        model_names = [['wresnet28x2']]
+        model_names = [['wresnet28x8']]
         cifar100_controls = make_controls(data_names, model_names, control_name)
         controls = cifar10_controls + svhn_controls + cifar100_controls
     elif file == 'ps':
@@ -51,7 +51,7 @@ def make_control_list(file):
         svhn_controls = make_controls(data_names, model_names, control_name)
         control_name = [[['2500', '10000']]]
         data_names = [['CIFAR100']]
-        model_names = [['wresnet28x2']]
+        model_names = [['wresnet28x8']]
         cifar100_controls = make_controls(data_names, model_names, control_name)
         controls = cifar10_controls_1 + cifar10_controls_2 + svhn_controls + cifar100_controls
     elif file == 'cd':
@@ -66,7 +66,7 @@ def make_control_list(file):
         control_name = [[['2500', '10000'], ['fix-mix'], ['100'], ['0.1'], ['iid', 'non-iid-l-2'], ['5'], ['0.5'],
                          ['1']]]
         data_names = [['CIFAR100']]
-        model_names = [['wresnet28x2']]
+        model_names = [['wresnet28x8']]
         cifar100_controls = make_controls(data_names, model_names, control_name)
         controls = cifar10_controls + svhn_controls + cifar100_controls
     elif file == 'ub':
@@ -83,7 +83,7 @@ def make_control_list(file):
         control_name = [[['2500', '10000'], ['fix-mix'], ['100'], ['0.1'], ['non-iid-d-0.1', 'non-iid-d-0.3'], ['5'],
                          ['0.5'], ['1']]]
         data_names = [['CIFAR100']]
-        model_names = [['wresnet28x2']]
+        model_names = [['wresnet28x8']]
         cifar100_controls = make_controls(data_names, model_names, control_name)
         controls = cifar10_controls + svhn_controls + cifar100_controls
     elif file == 'loss':
