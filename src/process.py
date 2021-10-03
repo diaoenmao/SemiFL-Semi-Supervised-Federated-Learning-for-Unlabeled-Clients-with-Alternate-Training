@@ -278,8 +278,7 @@ def make_df_history(extracted_processed_result_history):
             for k in extracted_processed_result_history[exp_name]:
                 df_name = '_'.join(
                     [data_name, model_name, num_supervised, loss_mode, num_clients, active_rate, data_split_mode,
-                     all_sbn,
-                     k])
+                     all_sbn, k])
                 df[df_name].append(
                     pd.DataFrame(data=extracted_processed_result_history[exp_name][k].reshape(1, -1), index=index_name))
     startrow = 0
@@ -325,7 +324,6 @@ def make_vis(df):
                 plt.ylabel(metric_name, fontsize=fontsize['label'])
                 plt.xticks(fontsize=fontsize['ticks'])
                 plt.yticks(fontsize=fontsize['ticks'])
-
         else:
             data_name, model_name, num_supervised, loss_mode, num_clients, active_rate, data_split_mode, all_sbn, \
             metric_name, stat = df_name.split('_')

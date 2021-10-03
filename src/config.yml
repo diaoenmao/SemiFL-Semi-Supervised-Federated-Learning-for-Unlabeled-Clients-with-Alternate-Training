@@ -9,6 +9,7 @@ control:
   local_epoch: '5'
   gm: '0.5'
   all_sbn: '1'
+  lc: '0'
 # data
 data_name: CIFAR10
 model_name: wresnet28x2

@@ -135,6 +135,8 @@ def process_control():
         cfg['local_epoch'] = int(cfg['control']['local_epoch'])
         cfg['gm'] = float(cfg['control']['gm'])
         cfg['all_sbn'] = int(cfg['control']['all_sbn'])
+        if 'lc' in cfg['control']:
+            cfg['lc'] = int(cfg['control']['lc'])
         cfg['server'] = {}
         cfg['server']['shuffle'] = {'train': True, 'test': False}
         if cfg['num_supervised'] > 250:
