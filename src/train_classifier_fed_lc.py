@@ -40,25 +40,26 @@ def runExperiment():
     cfg['seed'] = int(cfg['model_tag'].split('_')[0])
     torch.manual_seed(cfg['seed'])
     torch.cuda.manual_seed(cfg['seed'])
-    dataset = fetch_dataset(cfg['data_name'])
     labeled_dataset = fetch_dataset(cfg['data_name'])
     unlabeled_dataset = fetch_dataset(cfg['data_name'])
     process_dataset(labeled_dataset)
     labeled_dataset['train'], unlabeled_dataset['train'], supervised_idx = separate_dataset_su(labeled_dataset['train'],
                                                                                                unlabeled_dataset[
                                                                                                    'train'])
-    data_loader = make_data_loader(dataset, 'global')
+    data_loader = make_data_loader(labeled_dataset, 'global')
     model = eval('models.{}().to(cfg["device"])'.format(cfg['model_name']))
     optimizer = make_optimizer(model, 'local')
     scheduler = make_scheduler(optimizer, 'global')
     batchnorm_dataset = make_batchnorm_dataset_su(labeled_dataset['train'], unlabeled_dataset['train'])
-    data_split = split_dataset(dataset, cfg['num_clients'], cfg['data_split_mode'])
+    data_split_labeled = split_dataset(labeled_dataset, cfg['num_clients'], 'iid')
+    data_split_unlabeled = split_dataset(unlabeled_dataset, cfg['num_clients'], cfg['data_split_mode'])
     metric = Metric({'train': ['Loss', 'Accuracy'], 'test': ['Loss', 'Accuracy']})
     if cfg['resume_mode'] == 1:
         result = resume(cfg['model_tag'])
         last_epoch = result['epoch']
         if last_epoch > 1:
-            data_split = result['data_split']
+            data_split_labeled = result['data_split_labeled']
+            data_split_unlabeled = result['data_split_unlabeled']
             supervised_idx = result['supervised_idx']
             server = result['server']
             client = result['client']
@@ -67,15 +68,16 @@ def runExperiment():
             logger = result['logger']
         else:
             server = make_server(model)
-            client = make_client(model, data_split, supervised_idx)
+            client = make_client(model, data_split_labeled, data_split_unlabeled)
             logger = make_logger('output/runs/train_{}'.format(cfg['model_tag']))
     else:
         last_epoch = 1
         server = make_server(model)
-        client = make_client(model, data_split, supervised_idx)
+        client = make_client(model, data_split_labeled, data_split_unlabeled)
         logger = make_logger('output/runs/train_{}'.format(cfg['model_tag']))
     for epoch in range(last_epoch, cfg['global']['num_epochs'] + 1):
-        train_client(batchnorm_dataset, dataset['train'], server, client, optimizer, metric, logger, epoch)
+        train_client(batchnorm_dataset, labeled_dataset['train'], unlabeled_dataset['train'], server, client, optimizer,
+                     metric, logger, epoch)
         logger.reset()
         server.update(client)
         scheduler.step()
@@ -85,7 +87,8 @@ def runExperiment():
         result = {'cfg': cfg, 'epoch': epoch + 1, 'server': server, 'client': client,
                   'optimizer_state_dict': optimizer.state_dict(),
                   'scheduler_state_dict': scheduler.state_dict(),
-                  'supervised_idx': supervised_idx, 'data_split': data_split, 'logger': logger}
+                  'supervised_idx': supervised_idx, 'data_split_labeled': data_split_labeled,
+                  'data_split_unlabeled': data_split_unlabeled, 'logger': logger}
         save(result, './output/model/{}_checkpoint.pt'.format(cfg['model_tag']))
         if metric.compare(logger.mean['test/{}'.format(metric.pivot_name)]):
             metric.update(logger.mean['test/{}'.format(metric.pivot_name)])
@@ -100,17 +103,18 @@ def make_server(model):
     return server
 
 
-def make_client(model, data_split, supervised_idx):
+def make_client(model, data_split_labeled, data_split_unlabeled):
     client_id = torch.arange(cfg['num_clients'])
     client = [None for _ in range(cfg['num_clients'])]
     for m in range(len(client)):
-        supervised_idx_m = list(set(data_split['train'][m]).intersection(set(supervised_idx)))
-        unsupervised_idx_m = list(set(data_split['train'][m]) - set(supervised_idx_m))
-        client[m] = ClientLabeled(client_id[m], model, supervised_idx_m, unsupervised_idx_m)
+        client[m] = ClientLabeled(client_id[m], model,
+                                  {'train': data_split_labeled['train'][m], 'test': data_split_labeled['test'][m]},
+                                  {'train': data_split_unlabeled['train'][m], 'test': data_split_unlabeled['test'][m]})
     return client
 
 
-def train_client(batchnorm_dataset, dataset, server, client, optimizer, metric, logger, epoch):
+def train_client(batchnorm_dataset, labeled_dataset, unlabeled_dataset, server, client, optimizer, metric, logger,
+                 epoch):
     logger.safe(True)
     num_active_clients = int(np.ceil(cfg['active_rate'] * cfg['num_clients']))
     client_id = torch.arange(cfg['num_clients'])[torch.randperm(cfg['num_clients'])[:num_active_clients]].tolist()
@@ -122,8 +126,8 @@ def train_client(batchnorm_dataset, dataset, server, client, optimizer, metric, 
     lr = optimizer.param_groups[0]['lr']
     for i in range(num_active_clients):
         m = client_id[i]
-        labeled_dataset_m = separate_dataset(dataset, client[m].supervised_idx)
-        unlabeled_dataset_m = separate_dataset(dataset, client[m].unsupervised_idx)
+        labeled_dataset_m = separate_dataset(labeled_dataset, client[m].data_split_labeled['train'])
+        unlabeled_dataset_m = separate_dataset(unlabeled_dataset, client[m].data_split_unlabeled['train'])
         dataset_m = client[m].make_dataset(labeled_dataset_m, unlabeled_dataset_m)
         if dataset_m is not None:
             client[m].active = True

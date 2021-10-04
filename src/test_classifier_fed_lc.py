@@ -41,7 +41,8 @@ def runExperiment():
     result = resume(cfg['model_tag'], load_tag='best')
     last_epoch = result['epoch']
     supervised_idx = result['supervised_idx']
-    data_split = result['data_split']
+    data_split_labeled = result['data_split_labeled']
+    data_split_unlabeled = result['data_split_unlabeled']
     model.load_state_dict(result['server'].model_state_dict)
     data_loader = make_data_loader(dataset, 'server')
     test_logger = make_logger('output/runs/test_{}'.format(cfg['model_tag']))
@@ -51,7 +52,8 @@ def runExperiment():
     test_logger.safe(False)
     result = resume(cfg['model_tag'], load_tag='checkpoint')
     train_logger = result['logger'] if 'logger' in result else None
-    result = {'cfg': cfg, 'epoch': last_epoch, 'supervised_idx': supervised_idx, 'data_split': data_split,
+    result = {'cfg': cfg, 'epoch': last_epoch, 'supervised_idx': supervised_idx,
+              'data_split_labeled': data_split_labeled, 'data_split_unlabeled': data_split_unlabeled,
               'logger': {'train': train_logger, 'test': test_logger}}
     save(result, './output/result/{}.pt'.format(cfg['model_tag']))
     return
