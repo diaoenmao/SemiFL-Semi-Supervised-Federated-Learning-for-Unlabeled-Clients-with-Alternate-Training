@@ -203,23 +203,22 @@ def main():
         controls = cifar10_controls_1 + cifar10_controls_2
     elif file == 'lc':
         script_name = [['{}_classifier_fed_lc.py'.format(run)]]
-        control_name = [[['5000'], ['fix'], ['100'], ['0.05'], ['iid', 'non-iid-l-2'], ['5'], ['0'], ['1'], ['1', '2']]]
+        control_name = [[['5000'], ['fix'], ['100'], ['0.05'], ['iid', 'non-iid-l-2'], ['5'], ['0'], ['1'], ['1']]]
         data_names = [['CIFAR10']]
         model_names = [['resnet9', 'resnet9gn']]
         cifar10_controls_1 = make_controls(script_name, data_names, model_names, init_seeds, world_size,
                                            num_experiments, resume_mode, control_name)
-        control_name = [[['5000'], ['fix'], ['100'], ['0.1'], ['iid', 'non-iid-l-2'], ['5'], ['0'], ['1'], ['1', '2']]]
+        control_name = [[['5000'], ['fix'], ['100'], ['0.1'], ['iid', 'non-iid-l-2'], ['5'], ['0'], ['1'], ['1']]]
         data_names = [['CIFAR10']]
         model_names = [['resnet9', 'resnet9gn']]
         cifar10_controls_2 = make_controls(script_name, data_names, model_names, init_seeds, world_size,
                                            num_experiments, resume_mode, control_name)
-        control_name = [[['4000'], ['fix'], ['100'], ['0.1'], ['iid', 'non-iid-l-2'], ['5'], ['0'], ['1'], ['1', '2']]]
+        control_name = [[['4000'], ['fix'], ['100'], ['0.1'], ['iid', 'non-iid-l-2'], ['5'], ['0'], ['1'], ['1']]]
         data_names = [['CIFAR10']]
         model_names = [['wresnet28x2']]
         cifar10_controls_3 = make_controls(script_name, data_names, model_names, init_seeds, world_size,
                                            num_experiments, resume_mode, control_name)
-        # controls = cifar10_controls_1 + cifar10_controls_2 + cifar10_controls_3
-        controls = cifar10_controls_3
+        controls = cifar10_controls_1 + cifar10_controls_2 + cifar10_controls_3
     else:
         raise ValueError('Not valid file')
     s = '#!/bin/bash\n'

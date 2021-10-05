@@ -126,6 +126,20 @@ def make_control_list(file):
         model_names = [['resnet9', 'resnet9gn']]
         cifar10_controls_2 = make_controls(data_names, model_names, control_name)
         controls = cifar10_controls_1 + cifar10_controls_2
+    elif file == 'lc':
+        control_name = [[['5000'], ['fix'], ['100'], ['0.05'], ['iid', 'non-iid-l-2'], ['5'], ['0'], ['1'], ['1']]]
+        data_names = [['CIFAR10']]
+        model_names = [['resnet9', 'resnet9gn']]
+        cifar10_controls_1 = make_controls(data_names, model_names, control_name)
+        control_name = [[['5000'], ['fix'], ['100'], ['0.1'], ['iid', 'non-iid-l-2'], ['5'], ['0'], ['1'], ['1']]]
+        data_names = [['CIFAR10']]
+        model_names = [['resnet9', 'resnet9gn']]
+        cifar10_controls_2 = make_controls(data_names, model_names, control_name)
+        control_name = [[['4000'], ['fix'], ['100'], ['0.1'], ['iid', 'non-iid-l-2'], ['5'], ['0'], ['1'], ['1']]]
+        data_names = [['CIFAR10']]
+        model_names = [['wresnet28x2']]
+        cifar10_controls_3 = make_controls(data_names, model_names, control_name)
+        controls = cifar10_controls_1 + cifar10_controls_2 + cifar10_controls_3
     else:
         raise ValueError('Not valid file')
     return controls
@@ -141,6 +155,7 @@ def main():
     gm_control_list = make_control_list('gm')
     ssbn_control_list = make_control_list('ssbn')
     ablation_control_list = make_control_list('ablation')
+    lc_control_list = make_control_list('lc')
     controls = fs_control_list + ps_control_list + cd_control_list + ub_control_list + loss_control_list + \
                local_epoch_control_list + gm_control_list + ssbn_control_list + ablation_control_list
     processed_result_exp, processed_result_history = process_result(controls)
@@ -154,7 +169,7 @@ def main():
     extract_processed_result(extracted_processed_result_history, processed_result_history, [])
     df_exp = make_df_exp(extracted_processed_result_exp)
     df_history = make_df_history(extracted_processed_result_history)
-    make_vis(df_history)
+    # make_vis(df_history)
     return
 
 
@@ -242,12 +257,21 @@ def make_df_exp(extracted_processed_result_exp):
             data_name, model_name, num_supervised = control
             index_name = ['1']
             df_name = '_'.join([data_name, model_name, num_supervised])
-        else:
+        elif len(control) == 10:
             data_name, model_name, num_supervised, loss_mode, num_clients, active_rate, data_split_mode, \
-            local_epoch, gm, all_sbn, = control
+            local_epoch, gm, all_sbn = control
             index_name = ['_'.join([local_epoch, gm])]
             df_name = '_'.join(
                 [data_name, model_name, num_supervised, loss_mode, num_clients, active_rate, data_split_mode, all_sbn])
+        elif len(control) == 11:
+            data_name, model_name, num_supervised, loss_mode, num_clients, active_rate, data_split_mode, \
+            local_epoch, gm, all_sbn, lc = control
+            index_name = ['_'.join([local_epoch, gm])]
+            df_name = '_'.join(
+                [data_name, model_name, num_supervised, loss_mode, num_clients, active_rate, data_split_mode, all_sbn,
+                 lc])
+        else:
+            raise ValueError('Not valid control')
         df[df_name].append(pd.DataFrame(data=extracted_processed_result_exp[exp_name], index=index_name))
     startrow = 0
     writer = pd.ExcelWriter('{}/result_exp.xlsx'.format(result_path), engine='xlsxwriter')
@@ -271,7 +295,7 @@ def make_df_history(extracted_processed_result_history):
                 df_name = '_'.join([data_name, model_name, num_supervised, k])
                 df[df_name].append(
                     pd.DataFrame(data=extracted_processed_result_history[exp_name][k].reshape(1, -1), index=index_name))
-        else:
+        elif len(control) == 10:
             data_name, model_name, num_supervised, loss_mode, num_clients, active_rate, data_split_mode, \
             local_epoch, gm, all_sbn = control
             index_name = ['_'.join([local_epoch, gm])]
@@ -281,6 +305,18 @@ def make_df_history(extracted_processed_result_history):
                      all_sbn, k])
                 df[df_name].append(
                     pd.DataFrame(data=extracted_processed_result_history[exp_name][k].reshape(1, -1), index=index_name))
+        elif len(control) == 11:
+            data_name, model_name, num_supervised, loss_mode, num_clients, active_rate, data_split_mode, \
+            local_epoch, gm, all_sbn, lc = control
+            index_name = ['_'.join([local_epoch, gm])]
+            for k in extracted_processed_result_history[exp_name]:
+                df_name = '_'.join(
+                    [data_name, model_name, num_supervised, loss_mode, num_clients, active_rate, data_split_mode,
+                     all_sbn, lc, k])
+                df[df_name].append(
+                    pd.DataFrame(data=extracted_processed_result_history[exp_name][k].reshape(1, -1), index=index_name))
+        else:
+            raise ValueError('Not valid control')
     startrow = 0
     writer = pd.ExcelWriter('{}/result_history.xlsx'.format(result_path), engine='xlsxwriter')
     for df_name in df:
