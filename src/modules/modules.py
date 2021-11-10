@@ -56,6 +56,32 @@ class Server:
                 client[i].active = False
         return
 
+    def update_parallel(self, client):
+        with torch.no_grad():
+            valid_client_server = [self] + [client[i] for i in range(len(client)) if client[i].active]
+            if len(valid_client_server) > 0:
+                model = eval('models.{}()'.format(cfg['model_name']))
+                model.load_state_dict(self.model_state_dict)
+                global_optimizer = make_optimizer(model, 'global')
+                global_optimizer.load_state_dict(self.global_optimizer_state_dict)
+                global_optimizer.zero_grad()
+                weight = torch.ones(len(valid_client_server))
+                weight = weight / (2 * (weight.sum() - 1))
+                weight[0] = 1 / 2 if len(valid_client_server) > 1 else 1
+                for k, v in model.named_parameters():
+                    parameter_type = k.split('.')[-1]
+                    if 'weight' in parameter_type or 'bias' in parameter_type:
+                        tmp_v = v.data.new_zeros(v.size())
+                        for m in range(len(valid_client_server)):
+                            tmp_v += weight[m] * valid_client_server[m].model_state_dict[k]
+                        v.grad = (v.data - tmp_v).detach()
+                global_optimizer.step()
+                self.global_optimizer_state_dict = global_optimizer.state_dict()
+                self.model_state_dict = {k: v.cpu() for k, v in model.state_dict().items()}
+            for i in range(len(client)):
+                client[i].active = False
+        return
+
     def train(self, dataset, lr, metric, logger):
         data_loader = make_data_loader({'train': dataset}, 'server')['train']
         model = eval('models.{}().to(cfg["device"])'.format(cfg['model_name']))
@@ -367,7 +393,7 @@ class ClientLabeled:
                             input_size = input['data'].size(0)
                             input['lam'] = self.beta.sample()[0]
                             input['mix_data'] = (
-                                        input['lam'] * input['data'] + (1 - input['lam']) * input['mix_data']).detach()
+                                    input['lam'] * input['data'] + (1 - input['lam']) * input['mix_data']).detach()
                             input['mix_target'] = torch.stack([input['target'], input['mix_target']], dim=-1)
                             input['loss_mode'] = cfg['loss_mode']
                             input = to_device(input, cfg['device'])
@@ -421,7 +447,7 @@ class ClientLabeled:
                             input_size = input['data'].size(0)
                             input['lam'] = self.beta.sample()[0]
                             input['mix_data'] = (
-                                        input['lam'] * input['data'] + (1 - input['lam']) * input['mix_data']).detach()
+                                    input['lam'] * input['data'] + (1 - input['lam']) * input['mix_data']).detach()
                             input['mix_target'] = torch.stack([input['target'], input['mix_target']], dim=-1)
                             input['loss_mode'] = cfg['loss_mode']
                             input = to_device(input, cfg['device'])

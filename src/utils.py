@@ -135,6 +135,8 @@ def process_control():
         cfg['local_epoch'] = int(cfg['control']['local_epoch'])
         cfg['gm'] = float(cfg['control']['gm'])
         cfg['all_sbn'] = int(cfg['control']['all_sbn'])
+        if 'parallel' in cfg['control']:
+            cfg['parallel'] = int(cfg['control']['parallel'])
         if 'lc' in cfg['control']:
             cfg['lc'] = int(cfg['control']['lc'])
         cfg['server'] = {}
