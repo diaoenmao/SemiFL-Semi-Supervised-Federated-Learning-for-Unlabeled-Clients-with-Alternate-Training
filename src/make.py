@@ -203,13 +203,13 @@ def main():
         controls = cifar10_controls_1 + cifar10_controls_2
     elif file == 'alternate':
         script_name = [['{}_classifier_fed.py'.format(run)]]
-        control_name = [[['4000'], ['fix-match'], ['100'], ['0.1'], ['iid', 'non-iid-l-2'], ['5'], ['0.5'],
+        control_name = [[['4000'], ['fix-batch'], ['100'], ['0.1'], ['iid', 'non-iid-l-2'], ['5'], ['0.5'],
                          ['1']]]
         data_names = [['CIFAR10']]
         model_names = [['wresnet28x2']]
         cifar10_controls_1 = make_controls(script_name, data_names, model_names, init_seeds, world_size,
                                          num_experiments, resume_mode, control_name)
-        control_name = [[['4000'], ['fix', 'fix-match'], ['100'], ['0.1'], ['iid', 'non-iid-l-2'], ['5'], ['0.5'],
+        control_name = [[['4000'], ['fix', 'fix-batch'], ['100'], ['0.1'], ['iid', 'non-iid-l-2'], ['5'], ['0.5'],
                          ['1'], ['0']]]
         data_names = [['CIFAR10']]
         model_names = [['wresnet28x2']]
