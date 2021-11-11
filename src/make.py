@@ -201,24 +201,21 @@ def main():
         cifar10_controls_2 = make_controls(script_name, data_names, model_names, init_seeds, world_size,
                                            num_experiments, resume_mode, control_name)
         controls = cifar10_controls_1 + cifar10_controls_2
-    elif file == 'parallel':
-        script_name = [['{}_classifier_fed_parallel.py'.format(run)]]
-        control_name = [[['5000'], ['fix'], ['100'], ['0.05'], ['iid', 'non-iid-l-2'], ['5'], ['0.5'], ['1'], ['1']]]
-        data_names = [['CIFAR10']]
-        model_names = [['resnet9', 'resnet9gn']]
-        cifar10_controls_1 = make_controls(script_name, data_names, model_names, init_seeds, world_size,
-                                           num_experiments, resume_mode, control_name)
-        control_name = [[['5000'], ['fix'], ['100'], ['0.1'], ['iid', 'non-iid-l-2'], ['5'], ['0.5'], ['1'], ['1']]]
-        data_names = [['CIFAR10']]
-        model_names = [['resnet9', 'resnet9gn']]
-        cifar10_controls_2 = make_controls(script_name, data_names, model_names, init_seeds, world_size,
-                                           num_experiments, resume_mode, control_name)
-        control_name = [[['4000'], ['fix'], ['100'], ['0.1'], ['iid', 'non-iid-l-2'], ['5'], ['0.5'], ['1'], ['1']]]
+    elif file == 'alternate':
+        script_name = [['{}_classifier_fed.py'.format(run)]]
+        control_name = [[['4000'], ['fix-match'], ['100'], ['0.1'], ['iid', 'non-iid-l-2'], ['5'], ['0.5'],
+                         ['1']]]
         data_names = [['CIFAR10']]
         model_names = [['wresnet28x2']]
-        cifar10_controls_3 = make_controls(script_name, data_names, model_names, init_seeds, world_size,
-                                           num_experiments, resume_mode, control_name)
-        controls = cifar10_controls_1 + cifar10_controls_2 + cifar10_controls_3
+        cifar10_controls_1 = make_controls(script_name, data_names, model_names, init_seeds, world_size,
+                                         num_experiments, resume_mode, control_name)
+        control_name = [[['4000'], ['fix', 'fix-match'], ['100'], ['0.1'], ['iid', 'non-iid-l-2'], ['5'], ['0.5'],
+                         ['1'], ['0']]]
+        data_names = [['CIFAR10']]
+        model_names = [['wresnet28x2']]
+        cifar10_controls_2 = make_controls(script_name, data_names, model_names, init_seeds, world_size,
+                                         num_experiments, resume_mode, control_name)
+        controls = cifar10_controls_1 + cifar10_controls_2
     elif file == 'lc':
         script_name = [['{}_classifier_fed_lc.py'.format(run)]]
         control_name = [[['5000'], ['fix'], ['100'], ['0.05'], ['iid', 'non-iid-l-2'], ['5'], ['0.5'], ['1'], ['1']]]

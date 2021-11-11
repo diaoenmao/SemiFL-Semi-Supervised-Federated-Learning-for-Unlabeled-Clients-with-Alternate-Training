@@ -137,8 +137,8 @@ class Client:
                 for i, input in enumerate(data_loader):
                     input = collate(input)
                     input = to_device(input, cfg['device'])
-                    _output = model(input)
-                    output_i = _output['target']
+                    output_ = model(input)
+                    output_i = output_['target']
                     target_i = input['target']
                     output.append(output_i.cpu())
                     target.append(target_i.cpu())
@@ -220,6 +220,39 @@ class Client:
                     input['mix_data'] = (input['lam'] * input['data'] + (1 - input['lam']) * input['mix_data']).detach()
                     input['mix_target'] = torch.stack([input['target'], input['mix_target']], dim=-1)
                     input['loss_mode'] = cfg['loss_mode']
+                    input = to_device(input, cfg['device'])
+                    optimizer.zero_grad()
+                    output = model(input)
+                    output['loss'].backward()
+                    torch.nn.utils.clip_grad_norm_(model.parameters(), 1)
+                    optimizer.step()
+                    evaluation = metric.evaluate(metric.metric_name['train'], input, output)
+                    logger.append(evaluation, 'train', n=input_size)
+        elif cfg['loss_mode'] == 'fix-batch':
+            data_loader = make_data_loader({'train': dataset}, 'client')['train']
+            model = eval('models.{}().to(cfg["device"])'.format(cfg['model_name']))
+            model.load_state_dict(self.model_state_dict, strict=False)
+            self.optimizer_state_dict['param_groups'][0]['lr'] = lr
+            optimizer = make_optimizer(model, 'local')
+            optimizer.load_state_dict(self.optimizer_state_dict)
+            model.train(True)
+            for epoch in range(1, cfg['local']['num_epochs'] + 1):
+                for i, input in enumerate(data_loader):
+                    with torch.no_grad():
+                        model.train(False)
+                        input_ = collate(input)
+                        input_ = to_device(input_, cfg['device'])
+                        output_ = model(input_)
+                        output_i = output_['target']
+                        buffer = F.softmax(output_i, dim=-1)
+                        new_target, mask = self.make_hard_pseudo_label(buffer)
+                    if torch.all(~mask):
+                        continue
+                    model.train(True)
+                    input = {'data': input['data'][mask], 'aug': input['aug'][mask], 'target': new_target[mask]}
+                    input = to_device(input, cfg['device'])
+                    input_size = input['data'].size(0)
+                    input['loss_mode'] = 'fix'
                     input = to_device(input, cfg['device'])
                     optimizer.zero_grad()
                     output = model(input)

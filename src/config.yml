@@ -9,7 +9,7 @@ control:
   local_epoch: '5'
   gm: '0.5'
   all_sbn: '1'
-  parallel: '1'
+  ft: '0'
   lc: '0'
 # data
 data_name: CIFAR10

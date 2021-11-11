@@ -78,9 +78,14 @@ def runExperiment():
         else:
             train_client(server_dataset['train'], client_dataset['train'], server, client, optimizer, metric, logger,
                          epoch)
-        logger.reset()
-        server.update(client)
-        train_server(server_dataset['train'], server, optimizer, metric, logger, epoch)
+        if 'ft' in cfg and cfg['ft'] == 0:
+            train_server(server_dataset['train'], server, optimizer, metric, logger, epoch)
+            logger.reset()
+            server.update_parallel(client)
+        else:
+            logger.reset()
+            server.update(client)
+            train_server(server_dataset['train'], server, optimizer, metric, logger, epoch)
         scheduler.step()
         model.load_state_dict(server.model_state_dict)
         test_model = make_batchnorm_stats(batchnorm_dataset, model, 'global')
@@ -124,7 +129,8 @@ def train_client(batchnorm_dataset, client_dataset, server, client, optimizer, m
     for i in range(num_active_clients):
         m = client_id[i]
         dataset_m = separate_dataset(client_dataset, client[m].data_split['train'])
-        dataset_m = client[m].make_dataset(dataset_m)
+        if cfg['loss_mode'] != 'fix-batch':
+            dataset_m = client[m].make_dataset(dataset_m)
         if dataset_m is not None:
             client[m].active = True
             client[m].train(dataset_m, lr, metric, logger)
