@@ -183,7 +183,7 @@ def main():
     extract_processed_result(extracted_processed_result_history, processed_result_history, [])
     df_exp = make_df_exp(extracted_processed_result_exp)
     df_history = make_df_history(extracted_processed_result_history)
-    # make_vis(df_history)
+    make_vis(df_history)
     return
 
 
