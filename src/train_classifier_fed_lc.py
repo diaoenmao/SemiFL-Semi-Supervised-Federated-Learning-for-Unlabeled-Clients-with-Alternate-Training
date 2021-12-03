@@ -69,12 +69,12 @@ def runExperiment():
         else:
             server = make_server(model)
             client = make_client(model, data_split_labeled, data_split_unlabeled)
-            logger = make_logger('output/runs/train_{}'.format(cfg['model_tag']))
+            logger = make_logger(os.path.join('output', 'runs', 'train_{}'.format(cfg['model_tag'])))
     else:
         last_epoch = 1
         server = make_server(model)
         client = make_client(model, data_split_labeled, data_split_unlabeled)
-        logger = make_logger('output/runs/train_{}'.format(cfg['model_tag']))
+        logger = make_logger(os.path.join('output', 'runs', 'train_{}'.format(cfg['model_tag'])))
     for epoch in range(last_epoch, cfg['global']['num_epochs'] + 1):
         train_client(batchnorm_dataset, labeled_dataset['train'], unlabeled_dataset['train'], server, client, optimizer,
                      metric, logger, epoch)

@@ -55,10 +55,10 @@ def runExperiment():
             scheduler.load_state_dict(result['scheduler_state_dict'])
             logger = result['logger']
         else:
-            logger = make_logger('output/runs/train_{}'.format(cfg['model_tag']))
+            logger = make_logger(os.path.join('output', 'runs', 'train_{}'.format(cfg['model_tag'])))
     else:
         last_epoch = 1
-        logger = make_logger('output/runs/train_{}'.format(cfg['model_tag']))
+        logger = make_logger(os.path.join('output', 'runs', 'train_{}'.format(cfg['model_tag'])))
     if cfg['world_size'] > 1:
         model = torch.nn.DataParallel(model, device_ids=list(range(cfg['world_size'])))
     for epoch in range(last_epoch, cfg[cfg['model_name']]['num_epochs'] + 1):

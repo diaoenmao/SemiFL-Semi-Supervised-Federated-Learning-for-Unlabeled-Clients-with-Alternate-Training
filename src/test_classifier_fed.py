@@ -44,7 +44,7 @@ def runExperiment():
     data_split = result['data_split']
     model.load_state_dict(result['server'].model_state_dict)
     data_loader = make_data_loader(dataset, 'server')
-    test_logger = make_logger('output/runs/test_{}'.format(cfg['model_tag']))
+    test_logger = make_logger(os.path.join('output', 'runs', 'test_{}'.format(cfg['model_tag'])))
     test_logger.safe(True)
     test_model = make_batchnorm_stats(dataset['train'], model, 'server')
     test(data_loader['test'], test_model, metric, test_logger, last_epoch)

@@ -6,7 +6,7 @@ from utils import ntuple
 import datetime
 
 
-class Logger():
+class Logger:
     def __init__(self, log_path):
         self.log_path = log_path
         self.writer = None

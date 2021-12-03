@@ -44,7 +44,7 @@ def runExperiment():
     model.load_state_dict(result['model_state_dict'])
     dataset['train'], _, supervised_idx = separate_dataset_su(dataset['train'], supervised_idx=supervised_idx)
     data_loader = make_data_loader(dataset, cfg['model_name'])
-    test_logger = make_logger('output/runs/test_{}'.format(cfg['model_tag']))
+    test_logger = make_logger(os.path.join('output', 'runs', 'test_{}'.format(cfg['model_tag'])))
     test_logger.safe(True)
     test_model = make_batchnorm_stats(dataset['train'], model, cfg['model_name'])
     test(data_loader['test'], test_model, metric, test_logger, last_epoch)
