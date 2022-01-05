@@ -9,7 +9,6 @@ from metrics import Metric
 from utils import save, to_device, process_control, process_dataset, resume, collate
 from logger import make_logger
 
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 cudnn.benchmark = True
 parser = argparse.ArgumentParser(description='cfg')
 for k in cfg:
@@ -36,24 +35,27 @@ def runExperiment():
     torch.cuda.manual_seed(cfg['seed'])
     dataset = fetch_dataset(cfg['data_name'])
     process_dataset(dataset)
-    model = eval('models.{}().to(cfg["device"])'.format(cfg['model_name']))
+    track = False if cfg['sbn'] == 1 else True
+    momentum = None if cfg['sbn'] == 1 else 0.1
+    model = eval('models.{}(momentum=momentum, track=track).to(cfg["device"])'.format(cfg['model_name']))
+    batchnorm_dataset = dataset['train']
     metric = Metric({'test': ['Loss', 'Accuracy']})
     result = resume(cfg['model_tag'], load_tag='best')
     last_epoch = result['epoch']
-    supervised_idx = result['supervised_idx']
-    data_split_labeled = result['data_split_labeled']
-    data_split_unlabeled = result['data_split_unlabeled']
+    data_split = result['data_split']
     model.load_state_dict(result['server'].model_state_dict)
     data_loader = make_data_loader(dataset, 'server')
     test_logger = make_logger(os.path.join('output', 'runs', 'test_{}'.format(cfg['model_tag'])))
     test_logger.safe(True)
-    test_model = make_batchnorm_stats(dataset['train'], model, 'server')
+    if cfg['sbn'] == 1:
+        test_model = make_batchnorm_stats(batchnorm_dataset, model, 'global')
+    else:
+        test_model = model
     test(data_loader['test'], test_model, metric, test_logger, last_epoch)
     test_logger.safe(False)
     result = resume(cfg['model_tag'], load_tag='checkpoint')
     train_logger = result['logger'] if 'logger' in result else None
-    result = {'cfg': cfg, 'epoch': last_epoch, 'supervised_idx': supervised_idx,
-              'data_split_labeled': data_split_labeled, 'data_split_unlabeled': data_split_unlabeled,
+    result = {'cfg': cfg, 'epoch': last_epoch, 'data_split': data_split,
               'logger': {'train': train_logger, 'test': test_logger}}
     save(result, './output/result/{}.pt'.format(cfg['model_tag']))
     return

@@ -8,9 +8,8 @@ control:
   data_split_mode: 'iid'
   local_epoch: '5'
   gm: '0.5'
-  all_sbn: '1'
+  sbn: '1'
   ft: '1'
-  lc: '0'
 # data
 data_name: CIFAR10
 model_name: wresnet28x2

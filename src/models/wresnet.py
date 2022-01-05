@@ -8,7 +8,7 @@ from config import cfg
 
 class BasicBlock(nn.Module):
     def __init__(self, in_planes, out_planes, stride, drop_rate):
-        super(BasicBlock, self).__init__()
+        super().__init__()
         self.bn1 = nn.BatchNorm2d(in_planes)
         self.relu1 = nn.ReLU(inplace=True)
         self.conv1 = nn.Conv2d(in_planes, out_planes, kernel_size=3, stride=stride,
@@ -37,7 +37,7 @@ class BasicBlock(nn.Module):
 
 class NetworkBlock(nn.Module):
     def __init__(self, nb_layers, in_planes, out_planes, block, stride, drop_rate):
-        super(NetworkBlock, self).__init__()
+        super().__init__()
         self.layer = self._make_layer(block, in_planes, out_planes, nb_layers, stride, drop_rate)
 
     def _make_layer(self, block, in_planes, out_planes, nb_layers, stride, drop_rate):
@@ -53,7 +53,7 @@ class NetworkBlock(nn.Module):
 
 class WideResNet(nn.Module):
     def __init__(self, data_shape, num_classes, depth, widen_factor, drop_rate):
-        super(WideResNet, self).__init__()
+        super().__init__()
         num_down = int(min(math.log2(data_shape[1]), math.log2(data_shape[2]))) - 3
         hidden_size = [16]
         for i in range(num_down + 1):
@@ -98,7 +98,7 @@ class WideResNet(nn.Module):
         return output
 
 
-def wresnet28x2(track=False):
+def wresnet28x2(momentum=None, track=False):
     data_shape = cfg['data_shape']
     target_size = cfg['target_size']
     depth = cfg['wresnet28x2']['depth']
@@ -106,11 +106,11 @@ def wresnet28x2(track=False):
     drop_rate = cfg['wresnet28x2']['drop_rate']
     model = WideResNet(data_shape, target_size, depth, widen_factor, drop_rate)
     model.apply(init_param)
-    model.apply(lambda m: make_batchnorm(m, momentum=None, track_running_stats=track))
+    model.apply(lambda m: make_batchnorm(m, momentum=momentum, track_running_stats=track))
     return model
 
 
-def wresnet28x8(track=False):
+def wresnet28x8(momentum=None, track=False):
     data_shape = cfg['data_shape']
     target_size = cfg['target_size']
     depth = cfg['wresnet28x8']['depth']
@@ -118,11 +118,11 @@ def wresnet28x8(track=False):
     drop_rate = cfg['wresnet28x8']['drop_rate']
     model = WideResNet(data_shape, target_size, depth, widen_factor, drop_rate)
     model.apply(init_param)
-    model.apply(lambda m: make_batchnorm(m, momentum=None, track_running_stats=track))
+    model.apply(lambda m: make_batchnorm(m, momentum=momentum, track_running_stats=track))
     return model
 
 
-def wresnet37x2(track=False):
+def wresnet37x2(momentum=None, track=False):
     data_shape = cfg['data_shape']
     target_size = cfg['target_size']
     depth = cfg['wresnet37x2']['depth']
@@ -130,5 +130,5 @@ def wresnet37x2(track=False):
     drop_rate = cfg['wresnet37x2']['drop_rate']
     model = WideResNet(data_shape, target_size, depth, widen_factor, drop_rate)
     model.apply(init_param)
-    model.apply(lambda m: make_batchnorm(m, momentum=None, track_running_stats=track))
+    model.apply(lambda m: make_batchnorm(m, momentum=momentum, track_running_stats=track))
     return model

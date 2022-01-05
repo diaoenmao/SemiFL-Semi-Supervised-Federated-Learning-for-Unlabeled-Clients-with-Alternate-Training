@@ -21,10 +21,11 @@ class Server:
         global_optimizer = make_optimizer(model, 'global')
         self.global_optimizer_state_dict = global_optimizer.state_dict()
 
-    def distribute(self, dataset, client):
+    def distribute(self, client, batchnorm_dataset=None):
         model = eval('models.{}().to(cfg["device"])'.format(cfg['model_name']))
         model.load_state_dict(self.model_state_dict)
-        model = make_batchnorm_stats(dataset, model, 'global')
+        if batchnorm_dataset is not None:
+            model = make_batchnorm_stats(batchnorm_dataset, model, 'global')
         model_state_dict = {k: v.cpu() for k, v in model.state_dict().items()}
         for m in range(len(client)):
             if client[m].active:
@@ -78,6 +79,54 @@ class Server:
                 global_optimizer.step()
                 self.global_optimizer_state_dict = global_optimizer.state_dict()
                 self.model_state_dict = {k: v.cpu() for k, v in model.state_dict().items()}
+            for i in range(len(client)):
+                client[i].active = False
+        return
+
+    def distribute_fl(self, client):
+        track = False if cfg['sbn'] == 1 else True
+        momentum = None if cfg['sbn'] == 1 else 0.1
+        model = eval('models.{}(momentum=momentum, track=track).to(cfg["device"])'.format(cfg['model_name']))
+        model.load_state_dict(self.model_state_dict)
+        model_state_dict = {k: v.cpu() for k, v in model.state_dict().items()}
+        for m in range(len(client)):
+            if client[m].active:
+                client[m].model_state_dict = copy.deepcopy(model_state_dict)
+        return
+
+    def update_fl(self, client):
+        with torch.no_grad():
+            valid_client = [client[i] for i in range(len(client)) if client[i].active]
+            if len(valid_client) > 0:
+                track = False if cfg['sbn'] == 1 else True
+                momentum = None if cfg['sbn'] == 1 else 0.1
+                model = eval('models.{}(momentum=momentum, track=track)'.format(cfg['model_name']))
+                model.load_state_dict(self.model_state_dict)
+                if cfg['sbn'] == 1:
+                    global_optimizer = make_optimizer(model, 'global')
+                    global_optimizer.load_state_dict(self.global_optimizer_state_dict)
+                    global_optimizer.zero_grad()
+                    weight = torch.ones(len(valid_client))
+                    weight = weight / weight.sum()
+                    for k, v in model.named_parameters():
+                        parameter_type = k.split('.')[-1]
+                        if 'weight' in parameter_type or 'bias' in parameter_type:
+                            tmp_v = v.data.new_zeros(v.size())
+                            for m in range(len(valid_client)):
+                                tmp_v += weight[m] * valid_client[m].model_state_dict[k]
+                            v.grad = (v.data - tmp_v).detach()
+                    global_optimizer.step()
+                    self.global_optimizer_state_dict = global_optimizer.state_dict()
+                else:
+                    weight = torch.ones(len(valid_client))
+                    weight = weight / weight.sum()
+                    model_state_dict = copy.deepcopy(model.state_dict())
+                    for k, v in model_state_dict.items():
+                        tmp_v = v.data.new_zeros(v.size())
+                        for m in range(len(valid_client)):
+                            tmp_v += (weight[m] * valid_client[m].model_state_dict[k]).to(v.data.dtype)
+                        v.data = tmp_v.data.detach()
+                self.model_state_dict = {k: v.cpu() for k, v in model_state_dict.items()}
             for i in range(len(client)):
                 client[i].active = False
         return
@@ -253,6 +302,29 @@ class Client:
                     input = to_device(input, cfg['device'])
                     input_size = input['data'].size(0)
                     input['loss_mode'] = 'fix'
+                    input = to_device(input, cfg['device'])
+                    optimizer.zero_grad()
+                    output = model(input)
+                    output['loss'].backward()
+                    torch.nn.utils.clip_grad_norm_(model.parameters(), 1)
+                    optimizer.step()
+                    evaluation = metric.evaluate(metric.metric_name['train'], input, output)
+                    logger.append(evaluation, 'train', n=input_size)
+        elif cfg['loss_mode'] == 'sup':
+            data_loader = make_data_loader({'train': dataset}, 'client')['train']
+            track = False if cfg['sbn'] == 1 else True
+            momentum = None if cfg['sbn'] == 1 else 0.1
+            model = eval('models.{}(momentum=momentum, track=track).to(cfg["device"])'.format(cfg['model_name']))
+            model.load_state_dict(self.model_state_dict, strict=False)
+            self.optimizer_state_dict['param_groups'][0]['lr'] = lr
+            optimizer = make_optimizer(model, 'local')
+            optimizer.load_state_dict(self.optimizer_state_dict)
+            model.train(True)
+            for epoch in range(1, cfg['local']['num_epochs'] + 1):
+                for i, input in enumerate(data_loader):
+                    input = collate(input)
+                    input_size = input['data'].size(0)
+                    input['loss_mode'] = cfg['loss_mode']
                     input = to_device(input, cfg['device'])
                     optimizer.zero_grad()
                     output = model(input)

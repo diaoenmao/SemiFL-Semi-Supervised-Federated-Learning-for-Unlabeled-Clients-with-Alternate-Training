@@ -11,11 +11,10 @@ from config import cfg, process_args
 from data import fetch_dataset, split_dataset, make_data_loader, separate_dataset, separate_dataset_su, \
     make_batchnorm_dataset_su, make_batchnorm_stats
 from metrics import Metric
-from modules import Server, ClientLabeled
+from modules import Server, Client
 from utils import save, to_device, process_control, process_dataset, make_optimizer, make_scheduler, resume, collate
 from logger import make_logger
 
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 cudnn.benchmark = True
 parser = argparse.ArgumentParser(description='cfg')
 for k in cfg:
@@ -40,26 +39,28 @@ def runExperiment():
     cfg['seed'] = int(cfg['model_tag'].split('_')[0])
     torch.manual_seed(cfg['seed'])
     torch.cuda.manual_seed(cfg['seed'])
-    labeled_dataset = fetch_dataset(cfg['data_name'])
-    unlabeled_dataset = fetch_dataset(cfg['data_name'])
-    process_dataset(labeled_dataset)
-    labeled_dataset['train'], unlabeled_dataset['train'], supervised_idx = separate_dataset_su(labeled_dataset['train'],
-                                                                                               unlabeled_dataset[
-                                                                                                   'train'])
-    data_loader = make_data_loader(labeled_dataset, 'global')
+    server_dataset = fetch_dataset(cfg['data_name'])
+    client_dataset = fetch_dataset(cfg['data_name'])
+    process_dataset(server_dataset)
+    server_dataset['train'], client_dataset['train'], supervised_idx = separate_dataset_su(server_dataset['train'],
+                                                                                           client_dataset['train'])
+    data_loader = make_data_loader(server_dataset, 'global')
     model = eval('models.{}().to(cfg["device"])'.format(cfg['model_name']))
     optimizer = make_optimizer(model, 'local')
     scheduler = make_scheduler(optimizer, 'global')
-    batchnorm_dataset = make_batchnorm_dataset_su(labeled_dataset['train'], unlabeled_dataset['train'])
-    data_split_labeled = split_dataset(labeled_dataset, cfg['num_clients'], 'iid')
-    data_split_unlabeled = split_dataset(unlabeled_dataset, cfg['num_clients'], cfg['data_split_mode'])
+    if cfg['sbn'] == 1:
+        batchnorm_dataset = make_batchnorm_dataset_su(server_dataset['train'], client_dataset['train'])
+    elif cfg['sbn'] == 0:
+        batchnorm_dataset = server_dataset['train']
+    else:
+        raise ValueError('Not valid sbn')
+    data_split = split_dataset(client_dataset, cfg['num_clients'], cfg['data_split_mode'])
     metric = Metric({'train': ['Loss', 'Accuracy'], 'test': ['Loss', 'Accuracy']})
     if cfg['resume_mode'] == 1:
         result = resume(cfg['model_tag'])
         last_epoch = result['epoch']
         if last_epoch > 1:
-            data_split_labeled = result['data_split_labeled']
-            data_split_unlabeled = result['data_split_unlabeled']
+            data_split = result['data_split']
             supervised_idx = result['supervised_idx']
             server = result['server']
             client = result['client']
@@ -68,18 +69,23 @@ def runExperiment():
             logger = result['logger']
         else:
             server = make_server(model)
-            client = make_client(model, data_split_labeled, data_split_unlabeled)
+            client = make_client(model, data_split)
             logger = make_logger(os.path.join('output', 'runs', 'train_{}'.format(cfg['model_tag'])))
     else:
         last_epoch = 1
         server = make_server(model)
-        client = make_client(model, data_split_labeled, data_split_unlabeled)
+        client = make_client(model, data_split)
         logger = make_logger(os.path.join('output', 'runs', 'train_{}'.format(cfg['model_tag'])))
     for epoch in range(last_epoch, cfg['global']['num_epochs'] + 1):
-        train_client(batchnorm_dataset, labeled_dataset['train'], unlabeled_dataset['train'], server, client, optimizer,
-                     metric, logger, epoch)
-        logger.reset()
-        server.update(client)
+        train_client(batchnorm_dataset, client_dataset['train'], server, client, optimizer, metric, logger, epoch)
+        if 'ft' in cfg and cfg['ft'] == 0:
+            train_server(server_dataset['train'], server, optimizer, metric, logger, epoch)
+            logger.reset()
+            server.update_parallel(client)
+        else:
+            logger.reset()
+            server.update(client)
+            train_server(server_dataset['train'], server, optimizer, metric, logger, epoch)
         scheduler.step()
         model.load_state_dict(server.model_state_dict)
         test_model = make_batchnorm_stats(batchnorm_dataset, model, 'global')
@@ -87,8 +93,7 @@ def runExperiment():
         result = {'cfg': cfg, 'epoch': epoch + 1, 'server': server, 'client': client,
                   'optimizer_state_dict': optimizer.state_dict(),
                   'scheduler_state_dict': scheduler.state_dict(),
-                  'supervised_idx': supervised_idx, 'data_split_labeled': data_split_labeled,
-                  'data_split_unlabeled': data_split_unlabeled, 'logger': logger}
+                  'supervised_idx': supervised_idx, 'data_split': data_split, 'logger': logger}
         save(result, './output/model/{}_checkpoint.pt'.format(cfg['model_tag']))
         if metric.compare(logger.mean['test/{}'.format(metric.pivot_name)]):
             metric.update(logger.mean['test/{}'.format(metric.pivot_name)])
@@ -103,32 +108,29 @@ def make_server(model):
     return server
 
 
-def make_client(model, data_split_labeled, data_split_unlabeled):
+def make_client(model, data_split):
     client_id = torch.arange(cfg['num_clients'])
     client = [None for _ in range(cfg['num_clients'])]
     for m in range(len(client)):
-        client[m] = ClientLabeled(client_id[m], model,
-                                  {'train': data_split_labeled['train'][m], 'test': data_split_labeled['test'][m]},
-                                  {'train': data_split_unlabeled['train'][m], 'test': data_split_unlabeled['test'][m]})
+        client[m] = Client(client_id[m], model, {'train': data_split['train'][m], 'test': data_split['test'][m]})
     return client
 
 
-def train_client(batchnorm_dataset, labeled_dataset, unlabeled_dataset, server, client, optimizer, metric, logger,
-                 epoch):
+def train_client(batchnorm_dataset, client_dataset, server, client, optimizer, metric, logger, epoch):
     logger.safe(True)
     num_active_clients = int(np.ceil(cfg['active_rate'] * cfg['num_clients']))
     client_id = torch.arange(cfg['num_clients'])[torch.randperm(cfg['num_clients'])[:num_active_clients]].tolist()
     for i in range(num_active_clients):
         client[client_id[i]].active = True
-    server.distribute(batchnorm_dataset, client)
+    server.distribute(client, batchnorm_dataset)
     num_active_clients = len(client_id)
     start_time = time.time()
     lr = optimizer.param_groups[0]['lr']
     for i in range(num_active_clients):
         m = client_id[i]
-        labeled_dataset_m = separate_dataset(labeled_dataset, client[m].data_split_labeled['train'])
-        unlabeled_dataset_m = separate_dataset(unlabeled_dataset, client[m].data_split_unlabeled['train'])
-        dataset_m = client[m].make_dataset(labeled_dataset_m, unlabeled_dataset_m)
+        dataset_m = separate_dataset(client_dataset, client[m].data_split['train'])
+        if cfg['loss_mode'] != 'fix-batch':
+            dataset_m = client[m].make_dataset(dataset_m)
         if dataset_m is not None:
             client[m].active = True
             client[m].train(dataset_m, lr, metric, logger)
@@ -148,6 +150,23 @@ def train_client(batchnorm_dataset, labeled_dataset, unlabeled_dataset, server, 
                              'Experiment Finished Time: {}'.format(exp_finished_time)]}
             logger.append(info, 'train', mean=False)
             print(logger.write('train', metric.metric_name['train']))
+    logger.safe(False)
+    return
+
+
+def train_server(dataset, server, optimizer, metric, logger, epoch):
+    logger.safe(True)
+    start_time = time.time()
+    lr = optimizer.param_groups[0]['lr']
+    server.train(dataset, lr, metric, logger)
+    _time = (time.time() - start_time)
+    epoch_finished_time = datetime.timedelta(seconds=round((cfg['global']['num_epochs'] - epoch) * _time))
+    info = {'info': ['Model: {}'.format(cfg['model_tag']),
+                     'Train Epoch (S): {}({:.0f}%)'.format(epoch, 100.),
+                     'Learning rate: {:.6f}'.format(lr),
+                     'Epoch Finished Time: {}'.format(epoch_finished_time)]}
+    logger.append(info, 'train', mean=False)
+    print(logger.write('train', metric.metric_name['train']))
     logger.safe(False)
     return
 

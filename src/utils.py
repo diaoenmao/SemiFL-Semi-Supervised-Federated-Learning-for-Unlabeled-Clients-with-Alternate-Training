@@ -120,9 +120,6 @@ def process_control():
     data_shape = {'CIFAR10': [3, 32, 32], 'CIFAR100': [3, 32, 32], 'SVHN': [3, 32, 32]}
     cfg['data_shape'] = data_shape[cfg['data_name']]
     cfg['conv'] = {'hidden_size': [32, 64]}
-    cfg['resnet9'] = {'hidden_size': [64, 128, 256, 512]}
-    cfg['resnet9gn'] = {'hidden_size': [64, 128, 256, 512]}
-    cfg['resnet18'] = {'hidden_size': [64, 128, 256, 512]}
     cfg['wresnet28x2'] = {'depth': 28, 'widen_factor': 2, 'drop_rate': 0.0}
     cfg['wresnet28x8'] = {'depth': 28, 'widen_factor': 8, 'drop_rate': 0.0}
     cfg['threshold'] = 0.95
@@ -134,7 +131,7 @@ def process_control():
         cfg['data_split_mode'] = cfg['control']['data_split_mode']
         cfg['local_epoch'] = int(cfg['control']['local_epoch'])
         cfg['gm'] = float(cfg['control']['gm'])
-        cfg['all_sbn'] = int(cfg['control']['all_sbn'])
+        cfg['sbn'] = int(cfg['control']['sbn'])
         if 'ft' in cfg['control']:
             cfg['ft'] = int(cfg['control']['ft'])
         if 'lc' in cfg['control']:
@@ -164,15 +161,9 @@ def process_control():
         cfg['global']['batch_size'] = {'train': 250, 'test': 500}
         cfg['global']['shuffle'] = {'train': True, 'test': False}
         if cfg['num_clients'] > 10:
-            if 'resnet9' in cfg['model_name'] and cfg['active_rate'] == 0.05:
-                cfg['global']['num_epochs'] = 200
-            else:
-                cfg['global']['num_epochs'] = 800
+            cfg['global']['num_epochs'] = 800
         else:
-            if 'resnet9' in cfg['model_name'] and cfg['active_rate'] == 0.05:
-                cfg['global']['num_epochs'] = 200
-            else:
-                cfg['global']['num_epochs'] = 400
+            cfg['global']['num_epochs'] = 400
         cfg['global']['optimizer_name'] = 'SGD'
         cfg['global']['lr'] = 1
         cfg['global']['momentum'] = cfg['gm']
@@ -188,10 +179,7 @@ def process_control():
         cfg[model_name]['weight_decay'] = 5e-4
         cfg[model_name]['nesterov'] = True
         cfg[model_name]['scheduler_name'] = 'CosineAnnealingLR'
-        if 'resnet9' in model_name:
-            cfg[model_name]['num_epochs'] = 200
-        else:
-            cfg[model_name]['num_epochs'] = 400
+        cfg[model_name]['num_epochs'] = 400
         if cfg['num_supervised'] > 1000 or cfg['num_supervised'] == -1:
             cfg[model_name]['batch_size'] = {'train': 250, 'test': 500}
         else:

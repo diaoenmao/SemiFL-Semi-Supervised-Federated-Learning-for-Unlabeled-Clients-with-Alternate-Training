@@ -85,19 +85,24 @@ def input_collate(batch):
         return default_collate(batch)
 
 
-def make_data_loader(dataset, tag, batch_size=None, shuffle=None, sampler=None):
+def make_data_loader(dataset, tag, batch_size=None, shuffle=None, sampler=None, batch_sampler=None):
     data_loader = {}
     for k in dataset:
         _batch_size = cfg[tag]['batch_size'][k] if batch_size is None else batch_size[k]
         _shuffle = cfg[tag]['shuffle'][k] if shuffle is None else shuffle[k]
-        if sampler is None:
-            data_loader[k] = DataLoader(dataset=dataset[k], batch_size=_batch_size, shuffle=_shuffle,
-                                        pin_memory=True, num_workers=cfg['num_workers'], collate_fn=input_collate,
-                                        worker_init_fn=np.random.seed(cfg['seed']))
-        else:
+        if sampler is not None:
             data_loader[k] = DataLoader(dataset=dataset[k], batch_size=_batch_size, sampler=sampler[k],
                                         pin_memory=True, num_workers=cfg['num_workers'], collate_fn=input_collate,
                                         worker_init_fn=np.random.seed(cfg['seed']))
+        elif batch_sampler is not None:
+            data_loader[k] = DataLoader(dataset=dataset[k], batch_sampler=batch_sampler[k],
+                                        pin_memory=True, num_workers=cfg['num_workers'], collate_fn=input_collate,
+                                        worker_init_fn=np.random.seed(cfg['seed']))
+        else:
+            data_loader[k] = DataLoader(dataset=dataset[k], batch_size=_batch_size, shuffle=_shuffle,
+                                        pin_memory=True, num_workers=cfg['num_workers'], collate_fn=input_collate,
+                                        worker_init_fn=np.random.seed(cfg['seed']))
+
     return data_loader
 
 
