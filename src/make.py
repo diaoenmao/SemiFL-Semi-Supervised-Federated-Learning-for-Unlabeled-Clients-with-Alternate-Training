@@ -210,17 +210,17 @@ def main():
         controls = cifar10_controls + svhn_controls + cifar100_controls
     elif file == 'fsgd':
         script_name = [['{}_classifier_fsgd.py'.format(run)]]
-        control_name = [[['4000'], ['fix'], ['100'], ['0.1'], ['iid', 'non-iid-l-2'], ['0'], ['0'], ['1']]]
+        control_name = [[['4000'], ['fix-fsgd'], ['100'], ['0.1'], ['iid', 'non-iid-l-2'], ['0'], ['0'], ['1']]]
         data_names = [['CIFAR10']]
         model_names = [['wresnet28x2']]
         cifar10_controls = make_controls(script_name, data_names, model_names, init_seeds, world_size, num_experiments,
                                          resume_mode, control_name)
-        control_name = [[['1000'], ['fix'], ['100'], ['0.1'], ['iid', 'non-iid-l-2'], ['0'], ['0'], ['1']]]
+        control_name = [[['1000'], ['fix-fsgd'], ['100'], ['0.1'], ['iid', 'non-iid-l-2'], ['0'], ['0'], ['1']]]
         data_names = [['SVHN']]
         model_names = [['wresnet28x2']]
         svhn_controls = make_controls(script_name, data_names, model_names, init_seeds, world_size, num_experiments,
                                       resume_mode, control_name)
-        control_name = [[['10000'], ['fix'], ['100'], ['0.1'], ['iid', 'non-iid-l-2'], ['0'], ['0'], ['1']]]
+        control_name = [[['10000'], ['fix-fsgd'], ['100'], ['0.1'], ['iid', 'non-iid-l-2'], ['0'], ['0'], ['1']]]
         data_names = [['CIFAR100']]
         model_names = [['wresnet28x8']]
         cifar100_controls = make_controls(script_name, data_names, model_names, init_seeds, world_size, num_experiments,

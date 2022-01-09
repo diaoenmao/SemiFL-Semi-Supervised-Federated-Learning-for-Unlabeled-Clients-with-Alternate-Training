@@ -35,7 +35,7 @@ def runExperiment():
     torch.cuda.manual_seed(cfg['seed'])
     dataset = fetch_dataset(cfg['data_name'])
     process_dataset(dataset)
-    model = eval('models.{}(track=track).to(cfg["device"])'.format(cfg['model_name']))
+    model = eval('models.{}().to(cfg["device"])'.format(cfg['model_name']))
     batchnorm_dataset = dataset['train']
     metric = Metric({'test': ['Loss', 'Accuracy']})
     result = resume(cfg['model_tag'], load_tag='best')

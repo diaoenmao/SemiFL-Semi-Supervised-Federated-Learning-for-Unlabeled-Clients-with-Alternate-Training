@@ -45,7 +45,7 @@ def runExperiment():
     process_dataset(server_dataset)
     server_dataset['train'], client_dataset['train'], supervised_idx = separate_dataset_su(server_dataset['train'],
                                                                                            client_dataset['train'])
-    model = eval('models.{}(track=track).to(cfg["device"])'.format(cfg['model_name']))
+    model = eval('models.{}().to(cfg["device"])'.format(cfg['model_name']))
     optimizer = make_optimizer(model, 'local')
     scheduler = make_scheduler(optimizer, 'global')
     batchnorm_dataset = make_batchnorm_dataset_su(server_dataset['train'], client_dataset['train'])
@@ -83,9 +83,9 @@ def runExperiment():
         scheduler.step()
         logger.safe(False)
         model_state_dict = model.module.state_dict() if cfg['world_size'] > 1 else model.state_dict()
-        result = {'cfg': cfg, 'epoch': epoch + 1, 'supervised_idx': supervised_idx,
-                  'model_state_dict': model_state_dict, 'optimizer_state_dict': optimizer.state_dict(),
-                  'scheduler_state_dict': scheduler.state_dict(), 'logger': logger}
+        result = {'cfg': cfg, 'epoch': epoch + 1, 'model_state_dict': model_state_dict,
+                  'optimizer_state_dict': optimizer.state_dict(), 'scheduler_state_dict': scheduler.state_dict(),
+                  'supervised_idx': supervised_idx, 'data_split': data_split, 'logger': logger}
         save(result, './output/model/{}_checkpoint.pt'.format(cfg['model_tag']))
         if metric.compare(logger.mean['test/{}'.format(metric.pivot_name)]):
             metric.update(logger.mean['test/{}'.format(metric.pivot_name)])
@@ -115,7 +115,7 @@ def train(server_dataloader, client_dataloader, model, optimizer, metric, logger
         output = model(server_input)
         output['loss'] = output['loss'].mean() if cfg['world_size'] > 1 else output['loss']
         if torch.any(mask):
-            client_input['loss_mode'] = cfg['loss_mode']
+            client_input['loss_mode'] = 'fix'
             output_ = model(client_input)
             output['loss'] += output_['loss']
         output['loss'].backward()
