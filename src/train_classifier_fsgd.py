@@ -45,20 +45,11 @@ def runExperiment():
     process_dataset(server_dataset)
     server_dataset['train'], client_dataset['train'], supervised_idx = separate_dataset_su(server_dataset['train'],
                                                                                            client_dataset['train'])
-
-    track = False if cfg['sbn'] == 1 else True
-    momentum = None if cfg['sbn'] == 1 else 0.1
-    model = eval('models.{}(momentum=momentum, track=track).to(cfg["device"])'.format(cfg['model_name']))
+    model = eval('models.{}(track=track).to(cfg["device"])'.format(cfg['model_name']))
     optimizer = make_optimizer(model, 'local')
     scheduler = make_scheduler(optimizer, 'global')
-    if cfg['sbn'] == 1:
-        batchnorm_dataset = make_batchnorm_dataset_su(server_dataset['train'], client_dataset['train'])
-    elif cfg['sbn'] == 0:
-        batchnorm_dataset = server_dataset['train']
-    else:
-        raise ValueError('Not valid sbn')
+    batchnorm_dataset = make_batchnorm_dataset_su(server_dataset['train'], client_dataset['train'])
     data_split = split_dataset(client_dataset, cfg['num_clients'], cfg['data_split_mode'])
-
     metric = Metric({'train': ['Loss', 'Accuracy'], 'test': ['Loss', 'Accuracy']})
     if cfg['resume_mode'] == 1:
         result = resume(cfg['model_tag'])
@@ -87,10 +78,7 @@ def runExperiment():
                                              batch_sampler={'train': client_sampler, 'test': None})
         logger.safe(True)
         train(server_dataloader['train'], client_dataloader['train'], model, optimizer, metric, logger, epoch)
-        if cfg['sbn'] == 1:
-            test_model = make_batchnorm_stats(batchnorm_dataset, model, 'global')
-        else:
-            test_model = model
+        test_model = make_batchnorm_stats(batchnorm_dataset, model, 'global')
         test(server_dataloader['test'], test_model, metric, logger, epoch)
         scheduler.step()
         logger.safe(False)
