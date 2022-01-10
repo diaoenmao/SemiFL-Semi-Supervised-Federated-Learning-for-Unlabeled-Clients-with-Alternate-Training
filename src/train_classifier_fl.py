@@ -69,11 +69,10 @@ def runExperiment():
         logger = make_logger(os.path.join('output', 'runs', 'train_{}'.format(cfg['model_tag'])))
     for epoch in range(last_epoch, cfg['global']['num_epochs'] + 1):
         train_client(dataset['train'], server, client, optimizer, metric, logger, epoch)
-        server.update_fl(client)
+        server.update(client)
         scheduler.step()
         model.load_state_dict(server.model_state_dict)
-        # test_model = make_batchnorm_stats(batchnorm_dataset, model, 'global')
-        test_model = model
+        test_model = make_batchnorm_stats(batchnorm_dataset, model, 'global')
         test(data_loader['test'], test_model, metric, logger, epoch)
         result = {'cfg': cfg, 'epoch': epoch + 1, 'server': server, 'client': client,
                   'optimizer_state_dict': optimizer.state_dict(),
@@ -106,7 +105,7 @@ def train_client(dataset, server, client, optimizer, metric, logger, epoch):
     client_id = torch.arange(cfg['num_clients'])[torch.randperm(cfg['num_clients'])[:num_active_clients]].tolist()
     for i in range(num_active_clients):
         client[client_id[i]].active = True
-    server.distribute_fl(client)
+    server.distribute(client)
     num_active_clients = len(client_id)
     start_time = time.time()
     lr = optimizer.param_groups[0]['lr']
