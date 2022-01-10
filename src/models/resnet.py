@@ -114,7 +114,7 @@ def resnet9(momentum=None, track=False):
     return model
 
 
-def resnet18(momentum=None, track=False):
+def resnet18(momentum=0.1, track=True):
     data_shape = cfg['data_shape']
     target_size = cfg['target_size']
     hidden_size = cfg['resnet18']['hidden_size']

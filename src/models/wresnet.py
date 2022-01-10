@@ -98,7 +98,7 @@ class WideResNet(nn.Module):
         return output
 
 
-def wresnet28x2(momentum=None, track=False):
+def wresnet28x2(momentum=0.1, track=True):
     data_shape = cfg['data_shape']
     target_size = cfg['target_size']
     depth = cfg['wresnet28x2']['depth']

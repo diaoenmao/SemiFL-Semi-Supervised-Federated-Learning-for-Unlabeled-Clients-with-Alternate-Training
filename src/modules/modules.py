@@ -45,11 +45,11 @@ class Server:
                 weight = weight / weight.sum()
                 for k, v in model.named_parameters():
                     parameter_type = k.split('.')[-1]
-                    if 'weight' in parameter_type or 'bias' in parameter_type:
-                        tmp_v = v.data.new_zeros(v.size())
-                        for m in range(len(valid_client)):
-                            tmp_v += weight[m] * valid_client[m].model_state_dict[k]
-                        v.grad = (v.data - tmp_v).detach()
+                    # if 'weight' in parameter_type or 'bias' in parameter_type:
+                    tmp_v = v.data.new_zeros(v.size())
+                    for m in range(len(valid_client)):
+                        tmp_v += weight[m] * valid_client[m].model_state_dict[k]
+                    v.grad = (v.data - tmp_v).detach()
                 global_optimizer.step()
                 self.global_optimizer_state_dict = global_optimizer.state_dict()
                 self.model_state_dict = {k: v.cpu() for k, v in model.state_dict().items()}
@@ -81,6 +81,31 @@ class Server:
                 self.model_state_dict = {k: v.cpu() for k, v in model.state_dict().items()}
             for i in range(len(client)):
                 client[i].active = False
+        return
+
+    def update_fl(self, client):
+        with torch.no_grad():
+            valid_client = [client[i] for i in range(len(client)) if client[i].active]
+            if len(valid_client) > 0:
+                model = eval('models.{}()'.format(cfg['model_name']))
+                model.load_state_dict(self.model_state_dict)
+                weight = torch.ones(len(valid_client))
+                weight = weight / weight.sum()
+                model_state_dict = copy.deepcopy(model.state_dict())
+                for k, v in model_state_dict.items():
+                    tmp_v = torch.zeros(v.size())
+                    for m in range(len(valid_client)):
+                        tmp_v += (weight[m] * valid_client[m].model_state_dict[k])
+                    v.data = tmp_v.data.to(v.dtype)
+                self.model_state_dict = {k: v.cpu() for k, v in model_state_dict.items()}
+            for i in range(len(client)):
+                client[i].active = False
+        return
+
+    def distribute_fl(self, client):
+        for m in range(len(client)):
+            if client[m].active:
+                client[m].model_state_dict = copy.deepcopy(self.model_state_dict)
         return
 
     def train(self, dataset, lr, metric, logger):
