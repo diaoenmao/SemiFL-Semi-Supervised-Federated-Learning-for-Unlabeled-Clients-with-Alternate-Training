@@ -58,52 +58,138 @@ class Server:
         return
 
     def update_parallel(self, client):
-        with torch.no_grad():
-            valid_client_server = [self] + [client[i] for i in range(len(client)) if client[i].active]
-            if len(valid_client_server) > 0:
-                model = eval('models.{}()'.format(cfg['model_name']))
-                model.load_state_dict(self.model_state_dict)
-                global_optimizer = make_optimizer(model, 'global')
-                global_optimizer.load_state_dict(self.global_optimizer_state_dict)
-                global_optimizer.zero_grad()
-                weight = torch.ones(len(valid_client_server))
-                weight = weight / (2 * (weight.sum() - 1))
-                weight[0] = 1 / 2 if len(valid_client_server) > 1 else 1
-                for k, v in model.named_parameters():
-                    parameter_type = k.split('.')[-1]
-                    if 'weight' in parameter_type or 'bias' in parameter_type:
-                        tmp_v = v.data.new_zeros(v.size())
-                        for m in range(len(valid_client_server)):
-                            tmp_v += weight[m] * valid_client_server[m].model_state_dict[k]
-                        v.grad = (v.data - tmp_v).detach()
-                global_optimizer.step()
-                self.global_optimizer_state_dict = global_optimizer.state_dict()
-                self.model_state_dict = {k: v.cpu() for k, v in model.state_dict().items()}
-            for i in range(len(client)):
-                client[i].active = False
+        if cfg['loss_mode'] in ['fix', 'fix-batch']:
+            with torch.no_grad():
+                valid_client_server = [self] + [client[i] for i in range(len(client)) if client[i].active]
+                if len(valid_client_server) > 0:
+                    model = eval('models.{}()'.format(cfg['model_name']))
+                    model.load_state_dict(self.model_state_dict)
+                    global_optimizer = make_optimizer(model, 'global')
+                    global_optimizer.load_state_dict(self.global_optimizer_state_dict)
+                    global_optimizer.zero_grad()
+                    weight = torch.ones(len(valid_client_server))
+                    weight = weight / (2 * (weight.sum() - 1))
+                    weight[0] = 1 / 2 if len(valid_client_server) > 1 else 1
+                    for k, v in model.named_parameters():
+                        parameter_type = k.split('.')[-1]
+                        if 'weight' in parameter_type or 'bias' in parameter_type:
+                            tmp_v = v.data.new_zeros(v.size())
+                            for m in range(len(valid_client_server)):
+                                tmp_v += weight[m] * valid_client_server[m].model_state_dict[k]
+                            v.grad = (v.data - tmp_v).detach()
+                    global_optimizer.step()
+                    self.global_optimizer_state_dict = global_optimizer.state_dict()
+                    self.model_state_dict = {k: v.cpu() for k, v in model.state_dict().items()}
+        elif cfg['loss_mode'] in ['fix-frgd']:
+            with torch.no_grad():
+                valid_client_server = [self] + [client[i] for i in range(len(client)) if client[i].active]
+                num_valid_client = len(valid_client_server) - 1
+                if len(valid_client_server) > 0:
+                    model = eval('models.{}()'.format(cfg['model_name']))
+                    model.load_state_dict(self.model_state_dict)
+                    global_optimizer = make_optimizer(model, 'global')
+                    global_optimizer.load_state_dict(self.global_optimizer_state_dict)
+                    global_optimizer.zero_grad()
+                    weight = torch.ones(len(valid_client_server)) / (num_valid_client // 2 + 1)
+                    for k, v in model.named_parameters():
+                        parameter_type = k.split('.')[-1]
+                        if 'weight' in parameter_type or 'bias' in parameter_type:
+                            tmp_v_1 = v.data.new_zeros(v.size())
+                            tmp_v_1 += weight[0] * valid_client_server[0].model_state_dict[k]
+                            for m in range(1, num_valid_client // 2 + 1):
+                                tmp_v_1 += weight[m] * valid_client_server[m].model_state_dict[k]
+                            tmp_v_2 = v.data.new_zeros(v.size())
+                            tmp_v_2 += weight[0] * valid_client_server[0].model_state_dict[k]
+                            for m in range(num_valid_client // 2 + 1, len(valid_client_server)):
+                                tmp_v_2 += weight[m] * valid_client_server[m].model_state_dict[k]
+                            tmp_v = (tmp_v_1 + tmp_v_2) / 2
+                            v.grad = (v.data - tmp_v).detach()
+                    global_optimizer.step()
+                    self.global_optimizer_state_dict = global_optimizer.state_dict()
+                    self.model_state_dict = {k: v.cpu() for k, v in model.state_dict().items()}
+        elif cfg['loss_mode'] in ['fix-fmatch']:
+            with torch.no_grad():
+                valid_client_server = [self] + [client[i] for i in range(len(client)) if client[i].active]
+                if len(valid_client_server) > 0:
+                    model = eval('models.{}()'.format(cfg['model_name']))
+                    model.load_state_dict(self.model_state_dict)
+                    global_optimizer = make_optimizer(model, 'global')
+                    global_optimizer.load_state_dict(self.global_optimizer_state_dict)
+                    global_optimizer.zero_grad()
+                    if len(valid_client_server) == 1:
+                        weight = torch.ones(len(valid_client_server))
+                    else:
+                        weight = torch.ones(len(valid_client_server)) / (len(valid_client_server) - 1)
+                        weight[0] = 1
+                    for k, v in model.named_parameters():
+                        parameter_type = k.split('.')[-1]
+                        if 'weight' in parameter_type or 'bias' in parameter_type:
+                            tmp_v = v.data.new_zeros(v.size())
+                            tmp_v[:(tmp_v.size(0) // 2)] = valid_client_server[0].model_state_dict[k][
+                                                           :(tmp_v.size(0) // 2)]
+                            if len(valid_client_server) == 1:
+                                tmp_v[(tmp_v.size(0) // 2):] = v.data[(tmp_v.size(0) // 2):]
+                            else:
+                                for m in range(1, len(valid_client_server)):
+                                    tmp_v[(tmp_v.size(0) // 2):] += weight[m] * valid_client_server[m].model_state_dict[
+                                                                                    k][(tmp_v.size(0) // 2):]
+                            v.grad = (v.data - tmp_v).detach()
+                    global_optimizer.step()
+                    self.global_optimizer_state_dict = global_optimizer.state_dict()
+                    self.model_state_dict = {k: v.cpu() for k, v in model.state_dict().items()}
+        else:
+            raise ValueError('Not valid loss mode')
+        for i in range(len(client)):
+            client[i].active = False
         return
 
     def train(self, dataset, lr, metric, logger):
-        data_loader = make_data_loader({'train': dataset}, 'server')['train']
-        model = eval('models.{}().to(cfg["device"])'.format(cfg['model_name']))
-        model.load_state_dict(self.model_state_dict)
-        self.optimizer_state_dict['param_groups'][0]['lr'] = lr
-        optimizer = make_optimizer(model, 'local')
-        optimizer.load_state_dict(self.optimizer_state_dict)
-        model.train(True)
-        for epoch in range(1, cfg['local']['num_epochs'] + 1):
-            for i, input in enumerate(data_loader):
-                input = collate(input)
-                input_size = input['data'].size(0)
-                input = to_device(input, cfg['device'])
-                optimizer.zero_grad()
-                output = model(input)
-                output['loss'].backward()
-                torch.nn.utils.clip_grad_norm_(model.parameters(), 1)
-                optimizer.step()
-                evaluation = metric.evaluate(metric.metric_name['train'], input, output)
-                logger.append(evaluation, 'train', n=input_size)
-        self.model_state_dict = {k: v.cpu() for k, v in model.state_dict().items()}
+        if cfg['loss_mode'] != 'fix-fmatch':
+            data_loader = make_data_loader({'train': dataset}, 'server')['train']
+            model = eval('models.{}().to(cfg["device"])'.format(cfg['model_name']))
+            model.load_state_dict(self.model_state_dict)
+            self.optimizer_state_dict['param_groups'][0]['lr'] = lr
+            optimizer = make_optimizer(model, 'local')
+            optimizer.load_state_dict(self.optimizer_state_dict)
+            model.train(True)
+            for epoch in range(1, cfg['local']['num_epochs'] + 1):
+                for i, input in enumerate(data_loader):
+                    input = collate(input)
+                    input_size = input['data'].size(0)
+                    input = to_device(input, cfg['device'])
+                    optimizer.zero_grad()
+                    output = model(input)
+                    output['loss'].backward()
+                    torch.nn.utils.clip_grad_norm_(model.parameters(), 1)
+                    optimizer.step()
+                    evaluation = metric.evaluate(metric.metric_name['train'], input, output)
+                    logger.append(evaluation, 'train', n=input_size)
+            self.model_state_dict = {k: v.cpu() for k, v in model.state_dict().items()}
+        else:
+            data_loader = make_data_loader({'train': dataset}, 'server')['train']
+            model = eval('models.{}().to(cfg["device"])'.format(cfg['model_name']))
+            model.load_state_dict(self.model_state_dict)
+            self.optimizer_state_dict['param_groups'][0]['lr'] = lr
+            optimizer = make_optimizer(model, 'local')
+            optimizer.load_state_dict(self.optimizer_state_dict)
+            model.train(True)
+            for epoch in range(1, cfg['local']['num_epochs'] + 1):
+                for i, input in enumerate(data_loader):
+                    input = collate(input)
+                    input_size = input['data'].size(0)
+                    input = to_device(input, cfg['device'])
+                    optimizer.zero_grad()
+                    output = model(input)
+                    output['loss'].backward()
+                    torch.nn.utils.clip_grad_norm_(model.parameters(), 1)
+                    for k, v in model.named_parameters():
+                        parameter_type = k.split('.')[-1]
+                        if 'weight' in parameter_type or 'bias' in parameter_type:
+                            v.grad[(v.grad.size(0) // 2):] = 0
+                    optimizer.step()
+                    evaluation = metric.evaluate(metric.metric_name['train'], input, output)
+                    logger.append(evaluation, 'train', n=input_size)
+            self.model_state_dict = {k: v.cpu() for k, v in model.state_dict().items()}
         return
 
 
@@ -179,7 +265,29 @@ class Client:
         return
 
     def train(self, dataset, lr, metric, logger):
-        if cfg['loss_mode'] == 'fix':
+        if cfg['loss_mode'] == 'sup':
+            data_loader = make_data_loader({'train': dataset}, 'client')['train']
+            model = eval('models.{}().to(cfg["device"])'.format(cfg['model_name']))
+            model.load_state_dict(self.model_state_dict, strict=False)
+            self.optimizer_state_dict['param_groups'][0]['lr'] = lr
+            optimizer = make_optimizer(model, 'local')
+            optimizer.load_state_dict(self.optimizer_state_dict)
+            model.train(True)
+            model.train(True)
+            for epoch in range(1, cfg['local']['num_epochs'] + 1):
+                for i, input in enumerate(data_loader):
+                    input = collate(input)
+                    input_size = input['data'].size(0)
+                    input['loss_mode'] = cfg['loss_mode']
+                    input = to_device(input, cfg['device'])
+                    optimizer.zero_grad()
+                    output = model(input)
+                    output['loss'].backward()
+                    torch.nn.utils.clip_grad_norm_(model.parameters(), 1)
+                    optimizer.step()
+                    evaluation = metric.evaluate(metric.metric_name['train'], input, output)
+                    logger.append(evaluation, 'train', n=input_size)
+        elif cfg['loss_mode'] == 'fix':
             fix_dataset, _ = dataset
             fix_data_loader = make_data_loader({'train': fix_dataset}, 'client')['train']
             model = eval('models.{}().to(cfg["device"])'.format(cfg['model_name']))
@@ -229,7 +337,7 @@ class Client:
                     optimizer.step()
                     evaluation = metric.evaluate(metric.metric_name['train'], input, output)
                     logger.append(evaluation, 'train', n=input_size)
-        elif cfg['loss_mode'] == 'fix-batch':
+        elif cfg['loss_mode'] in ['fix-batch', 'fix-frgd']:
             data_loader = make_data_loader({'train': dataset}, 'client')['train']
             model = eval('models.{}().to(cfg["device"])'.format(cfg['model_name']))
             model.load_state_dict(self.model_state_dict, strict=False)
@@ -262,7 +370,7 @@ class Client:
                     optimizer.step()
                     evaluation = metric.evaluate(metric.metric_name['train'], input, output)
                     logger.append(evaluation, 'train', n=input_size)
-        elif cfg['loss_mode'] == 'sup':
+        elif cfg['loss_mode'] == 'fix-fmatch':
             data_loader = make_data_loader({'train': dataset}, 'client')['train']
             model = eval('models.{}().to(cfg["device"])'.format(cfg['model_name']))
             model.load_state_dict(self.model_state_dict, strict=False)
@@ -270,17 +378,32 @@ class Client:
             optimizer = make_optimizer(model, 'local')
             optimizer.load_state_dict(self.optimizer_state_dict)
             model.train(True)
-            model.train(True)
             for epoch in range(1, cfg['local']['num_epochs'] + 1):
                 for i, input in enumerate(data_loader):
-                    input = collate(input)
+                    with torch.no_grad():
+                        model.train(False)
+                        input_ = collate(input)
+                        input_ = to_device(input_, cfg['device'])
+                        output_ = model(input_)
+                        output_i = output_['target']
+                        buffer = F.softmax(output_i, dim=-1)
+                        new_target, mask = self.make_hard_pseudo_label(buffer)
+                    if torch.all(~mask):
+                        continue
+                    model.train(True)
+                    input = {'data': input['data'][mask], 'aug': input['aug'][mask], 'target': new_target[mask]}
+                    input = to_device(input, cfg['device'])
                     input_size = input['data'].size(0)
-                    input['loss_mode'] = cfg['loss_mode']
+                    input['loss_mode'] = 'fix'
                     input = to_device(input, cfg['device'])
                     optimizer.zero_grad()
                     output = model(input)
                     output['loss'].backward()
                     torch.nn.utils.clip_grad_norm_(model.parameters(), 1)
+                    for k, v in model.named_parameters():
+                        parameter_type = k.split('.')[-1]
+                        if 'weight' in parameter_type or 'bias' in parameter_type:
+                            v.grad[:(v.grad.size(0) // 2)] = 0
                     optimizer.step()
                     evaluation = metric.evaluate(metric.metric_name['train'], input, output)
                     logger.append(evaluation, 'train', n=input_size)

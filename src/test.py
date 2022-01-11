@@ -4,7 +4,9 @@ import models
 import os
 import shutil
 import time
+import numpy as np
 import torch
+import torch.nn as nn
 import torch.backends.cudnn as cudnn
 from config import cfg, process_args
 from data import fetch_dataset, make_data_loader, separate_dataset_su, make_batchnorm_stats, make_batchnorm_dataset_su
@@ -20,6 +22,7 @@ for k in cfg:
 parser.add_argument('--control_name', default=None, type=str)
 args = vars(parser.parse_args())
 process_args(args)
+
 
 # if __name__ == "__main__":
 #     p = torch.nn.Parameter(torch.ones(5))
@@ -167,3 +170,38 @@ process_args(args)
 #         client_input = collate(client_input)
 #         print(server_input.keys())
 #         print(client_input.keys())
+
+
+# class Model(nn.Module):
+#     def __init__(self):
+#         super(Model, self).__init__()
+#         self.fc1 = nn.Linear(10, 5)
+#         self.fc2 = nn.Linear(5, 1)
+#         self.fc1.register_forward_hook(self._forward_hook)
+#         self.fc1.register_full_backward_hook(self._backward_hook)
+#
+#     def forward(self, inp):
+#         return self.fc2(self.fc1(inp))
+#
+#     def _forward_hook(self, module, input, output):
+#         print(type(input))
+#         print(len(input))
+#         print(type(output))
+#         print(input[0].shape)
+#         print(output.shape)
+#         print()
+#
+#     def _backward_hook(self, module, grad_input, grad_output):
+#         print(type(grad_input))
+#         print(len(grad_input))
+#         print(type(grad_output))
+#         print(len(grad_output))
+#         print(grad_input[0])
+#         print(grad_output[0])
+#         print()
+#
+#
+# if __name__ == "__main__":
+#     model = Model()
+#     out = model(torch.tensor(np.arange(10).reshape(1, 1, 10), dtype=torch.float32))
+#     out.backward()
