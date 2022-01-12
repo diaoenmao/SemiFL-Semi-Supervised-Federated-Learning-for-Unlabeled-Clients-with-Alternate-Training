@@ -13,6 +13,7 @@ parser.add_argument('--resume_mode', default=0, type=int)
 parser.add_argument('--data', default=None, type=str)
 parser.add_argument('--model', default=None, type=str)
 parser.add_argument('--file', default=None, type=str)
+parser.add_argument('--split_round', default=65535, type=int)
 args = vars(parser.parse_args())
 
 
@@ -38,6 +39,7 @@ def main():
     num_experiments = args['num_experiments']
     resume_mode = args['resume_mode']
     file = args['file']
+    split_round = args['split_round']
     gpu_ids = [','.join(str(i) for i in list(range(x, x + world_size))) for x in list(range(0, num_gpus, world_size))]
     init_seeds = [list(range(init_seed, init_seed + num_experiments, experiment_step))]
     world_size = [[world_size]]
@@ -259,22 +261,49 @@ def main():
         controls = cifar10_controls + svhn_controls + cifar100_controls
     else:
         raise ValueError('Not valid file')
+
     s = '#!/bin/bash\n'
-    k = 0
+    j = 1
+    k = 1
     for i in range(len(controls)):
         controls[i] = list(controls[i])
         s = s + 'CUDA_VISIBLE_DEVICES=\"{}\" python {} --data_name {} --model_name {} --init_seed {} ' \
                 '--world_size {} --num_experiments {} --resume_mode {} --control_name {}&\n'.format(
-            gpu_ids[k % len(gpu_ids)], *controls[i])
-        if k % round == round - 1:
+            gpu_ids[i % len(gpu_ids)], *controls[i])
+        if i % round == round - 1:
             s = s[:-2] + '\nwait\n'
-        k = k + 1
-    if s[-5:-1] != 'wait':
-        s = s + 'wait\n'
-    print(s)
-    run_file = open('./{}.sh'.format(filename), 'w')
-    run_file.write(s)
-    run_file.close()
+            if j % split_round == 0:
+                print(s)
+                run_file = open('./{}_{}.sh'.format(filename, k), 'w')
+                run_file.write(s)
+                run_file.close()
+                s = '#!/bin/bash\n'
+                k = k + 1
+            j = j + 1
+    if s != '#!/bin/bash\n':
+        if s[-5:-1] != 'wait':
+            s = s + 'wait\n'
+        print(s)
+        run_file = open('./{}_{}.sh'.format(filename, k), 'w')
+        run_file.write(s)
+        run_file.close()
+
+    # s = '#!/bin/bash\n'
+    # k = 0
+    # for i in range(len(controls)):
+    #     controls[i] = list(controls[i])
+    #     s = s + 'CUDA_VISIBLE_DEVICES=\"{}\" python {} --data_name {} --model_name {} --init_seed {} ' \
+    #             '--world_size {} --num_experiments {} --resume_mode {} --control_name {}&\n'.format(
+    #         gpu_ids[k % len(gpu_ids)], *controls[i])
+    #     if k % round == round - 1:
+    #         s = s[:-2] + '\nwait\n'
+    #     k = k + 1
+    # if s[-5:-1] != 'wait':
+    #     s = s + 'wait\n'
+    # print(s)
+    # run_file = open('./{}.sh'.format(filename), 'w')
+    # run_file.write(s)
+    # run_file.close()
     return
 
 
