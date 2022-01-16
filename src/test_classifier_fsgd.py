@@ -41,7 +41,7 @@ def runExperiment():
     last_epoch = result['epoch']
     supervised_idx = result['supervised_idx']
     data_split = result['data_split']
-    model.load_state_dict(result['server'].model_state_dict)
+    model.load_state_dict(result['model_state_dict'])
     data_loader = make_data_loader(dataset, 'server')
     test_logger = make_logger(os.path.join('output', 'runs', 'test_{}'.format(cfg['model_tag'])))
     test_logger.safe(True)
