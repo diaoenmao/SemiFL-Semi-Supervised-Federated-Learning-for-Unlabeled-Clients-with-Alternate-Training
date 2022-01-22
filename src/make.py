@@ -261,7 +261,6 @@ def main():
         controls = cifar10_controls + svhn_controls + cifar100_controls
     else:
         raise ValueError('Not valid file')
-
     s = '#!/bin/bash\n'
     j = 1
     k = 1
@@ -287,23 +286,6 @@ def main():
         run_file = open('./{}_{}.sh'.format(filename, k), 'w')
         run_file.write(s)
         run_file.close()
-
-    # s = '#!/bin/bash\n'
-    # k = 0
-    # for i in range(len(controls)):
-    #     controls[i] = list(controls[i])
-    #     s = s + 'CUDA_VISIBLE_DEVICES=\"{}\" python {} --data_name {} --model_name {} --init_seed {} ' \
-    #             '--world_size {} --num_experiments {} --resume_mode {} --control_name {}&\n'.format(
-    #         gpu_ids[k % len(gpu_ids)], *controls[i])
-    #     if k % round == round - 1:
-    #         s = s[:-2] + '\nwait\n'
-    #     k = k + 1
-    # if s[-5:-1] != 'wait':
-    #     s = s + 'wait\n'
-    # print(s)
-    # run_file = open('./{}.sh'.format(filename), 'w')
-    # run_file.write(s)
-    # run_file.close()
     return
 
 
