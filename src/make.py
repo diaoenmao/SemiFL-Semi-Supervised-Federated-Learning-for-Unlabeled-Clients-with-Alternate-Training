@@ -123,17 +123,12 @@ def main():
         controls = cifar10_controls + svhn_controls + cifar100_controls
     elif file == 'loss':
         script_name = [['{}_classifier_ssfl.py'.format(run)]]
-        control_name = [[['250', '4000'], ['fix'], ['100'], ['0.1'], ['iid', 'non-iid-l-2'], ['5'], ['0.5'], ['1']]]
+        control_name = [[['4000'], ['fix'], ['100'], ['0.1'], ['iid', 'non-iid-l-2'], ['5'], ['0.5'], ['1']]]
         data_names = [['CIFAR10']]
         model_names = [['wresnet28x2']]
         cifar10_controls = make_controls(script_name, data_names, model_names, init_seeds, world_size, num_experiments,
                                          resume_mode, control_name)
-        control_name = [[['250', '1000'], ['fix'], ['100'], ['0.1'], ['iid', 'non-iid-l-2'], ['5'], ['0.5'], ['1']]]
-        data_names = [['SVHN']]
-        model_names = [['wresnet28x2']]
-        svhn_controls = make_controls(script_name, data_names, model_names, init_seeds, world_size, num_experiments,
-                                      resume_mode, control_name)
-        controls = cifar10_controls + svhn_controls
+        controls = cifar10_controls
     elif file == 'local-epoch':
         script_name = [['{}_classifier_ssfl.py'.format(run)]]
         control_name = [[['4000'], ['fix-mix'], ['100'], ['0.1'], ['iid', 'non-iid-l-2'], ['1'], ['0.5'], ['1']]]
@@ -204,17 +199,7 @@ def main():
         model_names = [['wresnet28x2']]
         cifar10_controls = make_controls(script_name, data_names, model_names, init_seeds, world_size, num_experiments,
                                          resume_mode, control_name)
-        control_name = [[['1000'], ['fix-fsgd'], ['100'], ['0.1'], ['iid', 'non-iid-l-2'], ['0'], ['0'], ['1']]]
-        data_names = [['SVHN']]
-        model_names = [['wresnet28x2']]
-        svhn_controls = make_controls(script_name, data_names, model_names, init_seeds, world_size, num_experiments,
-                                      resume_mode, control_name)
-        control_name = [[['10000'], ['fix-fsgd'], ['100'], ['0.1'], ['iid', 'non-iid-l-2'], ['0'], ['0'], ['1']]]
-        data_names = [['CIFAR100']]
-        model_names = [['wresnet28x8']]
-        cifar100_controls = make_controls(script_name, data_names, model_names, init_seeds, world_size, num_experiments,
-                                          resume_mode, control_name)
-        controls = cifar10_controls + svhn_controls + cifar100_controls
+        controls = cifar10_controls
     elif file == 'frgd':
         script_name = [['{}_classifier_ssfl.py'.format(run)]]
         control_name = [

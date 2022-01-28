@@ -6,6 +6,7 @@ See requirements.txt
 
 ## Instruction
  - Global hyperparameters are configured in config.yml
+ - Experimental setup are listed in make.py 
  - Hyperparameters can be found at process_control() in utils.py 
  - modules/modules.py defines Server and Client
     - sBN statistics are updated in distribute() of Server
