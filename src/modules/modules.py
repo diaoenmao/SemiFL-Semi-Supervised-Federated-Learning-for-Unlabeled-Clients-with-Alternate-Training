@@ -325,7 +325,8 @@ class Client:
                              'mix_data': mix_input['data'], 'mix_target': mix_input['target']}
                     input = collate(input)
                     input_size = input['data'].size(0)
-                    input['lam'] = self.beta.sample()[0]
+                    lam = self.beta.sample()[0]
+                    input['lam'] = max(lam, (1 - lam))
                     input['mix_data'] = (input['lam'] * input['data'] + (1 - input['lam']) * input['mix_data']).detach()
                     input['mix_target'] = torch.stack([input['target'], input['mix_target']], dim=-1)
                     input['loss_mode'] = cfg['loss_mode']
