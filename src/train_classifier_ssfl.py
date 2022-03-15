@@ -135,6 +135,7 @@ def train_client(batchnorm_dataset, client_dataset, server, client, optimizer, m
                 client[m].active = True
             else:
                 client[m].active = False
+            client[m].train(dataset_m, lr, metric, logger)
         else:
             if cfg['loss_mode'] in ['fix-frgd', 'fix-fmatch']:
                 dataset_m_ = client[m].make_dataset(dataset_m)
