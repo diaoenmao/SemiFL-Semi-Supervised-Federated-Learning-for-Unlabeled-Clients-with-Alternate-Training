@@ -147,6 +147,7 @@ def train_client(batchnorm_dataset, client_dataset, server, client, optimizer, m
             elif cfg['loss_mode'] in ['fix-batch']:
                 if dataset_m is not None:
                     client[m].active = True
+                    client[m].train(dataset_m, lr, metric, logger)
                 else:
                     client[m].active = False
             else:
