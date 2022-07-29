@@ -55,7 +55,11 @@ def runExperiment():
     else:
         raise ValueError('Not valid sbn')
     data_split = split_dataset(client_dataset, cfg['num_clients'], cfg['data_split_mode'])
-    metric = Metric({'train': ['Loss', 'Accuracy'], 'test': ['Loss', 'Accuracy']})
+    if cfg['loss_mode'] != 'sup':
+        metric = Metric({'train': ['Loss', 'Accuracy', 'PAccuracy', 'MAccuracy', 'LabelRatio'],
+                         'test': ['Loss', 'Accuracy']})
+    else:
+        metric = Metric({'train': ['Loss', 'Accuracy'], 'test': ['Loss', 'Accuracy']})
     if cfg['resume_mode'] == 1:
         result = resume(cfg['model_tag'])
         last_epoch = result['epoch']
@@ -130,28 +134,12 @@ def train_client(batchnorm_dataset, client_dataset, server, client, optimizer, m
         m = client_id[i]
         dataset_m = separate_dataset(client_dataset, client[m].data_split['train'])
         if cfg['loss_mode'] not in ['fix-batch', 'fix-frgd', 'fix-fmatch']:
-            dataset_m = client[m].make_dataset(dataset_m)
-            if dataset_m is not None:
-                client[m].active = True
-                client[m].train(dataset_m, lr, metric, logger)
-            else:
-                client[m].active = False
+            dataset_m = client[m].make_dataset(dataset_m, metric, logger)
+        if dataset_m is not None:
+            client[m].active = True
+            client[m].train(dataset_m, lr, metric, logger)
         else:
-            if cfg['loss_mode'] in ['fix-frgd', 'fix-fmatch']:
-                dataset_m_ = client[m].make_dataset(dataset_m)
-                if dataset_m_ is not None:
-                    client[m].active = True
-                    client[m].train(dataset_m, lr, metric, logger)
-                else:
-                    client[m].active = False
-            elif cfg['loss_mode'] in ['fix-batch']:
-                if dataset_m is not None:
-                    client[m].active = True
-                    client[m].train(dataset_m, lr, metric, logger)
-                else:
-                    client[m].active = False
-            else:
-                raise ValueError('Not valid loss mode')
+            client[m].active = False
         if i % int((num_active_clients * cfg['log_interval']) + 1) == 0:
             _time = (time.time() - start_time) / (i + 1)
             epoch_finished_time = datetime.timedelta(seconds=_time * (num_active_clients - i - 1))

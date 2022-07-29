@@ -180,13 +180,21 @@ def make_control_list(file):
         model_names = [['wresnet28x8']]
         cifar100_controls = make_controls(data_names, model_names, control_name)
         controls = cifar10_controls + svhn_controls + cifar100_controls
+    elif file == 'quality':
+        control_name = [[['4000'], ['fix', 'fix-batch'], ['100'], ['0.1'], ['non-iid-l-2', 'iid'], ['5'], ['0.5'],
+                         ['1'], ['0', '1']]]
+        data_names = [['CIFAR10']]
+        model_names = [['wresnet28x2']]
+        cifar10_controls_1 = make_controls(data_names, model_names, control_name)
+        controls = cifar10_controls_1
     else:
         raise ValueError('Not valid file')
     return controls
 
 
 def main():
-    files = ['fs', 'ps', 'cd', 'ub', 'loss', 'local-epoch', 'gm', 'sbn', 'alternate', 'fl', 'fsgd', 'frgd', 'fmatch']
+    # files = ['fs', 'ps', 'cd', 'ub', 'loss', 'local-epoch', 'gm', 'sbn', 'alternate', 'fl', 'fsgd', 'frgd', 'fmatch']
+    files = ['quality']
     controls = []
     for file in files:
         controls += make_control_list(file)

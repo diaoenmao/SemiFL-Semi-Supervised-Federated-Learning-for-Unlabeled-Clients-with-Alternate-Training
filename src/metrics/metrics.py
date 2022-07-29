@@ -15,12 +15,32 @@ def Accuracy(output, target, topk=1):
     return acc
 
 
+def MAccuracy(output, target, mask, topk=1):
+    if torch.any(mask):
+        output = output[mask]
+        target = target[mask]
+        acc = Accuracy(output, target, topk)
+    else:
+        acc = 0
+    return acc
+
+
+def LabelRatio(mask):
+    with torch.no_grad():
+        lr = mask.float().mean().item()
+    return lr
+
+
 class Metric(object):
     def __init__(self, metric_name):
         self.metric_name = self.make_metric_name(metric_name)
         self.pivot, self.pivot_name, self.pivot_direction = self.make_pivot()
         self.metric = {'Loss': (lambda input, output: output['loss'].item()),
-                       'Accuracy': (lambda input, output: recur(Accuracy, output['target'], input['target']))}
+                       'Accuracy': (lambda input, output: recur(Accuracy, output['target'], input['target'])),
+                       'PAccuracy': (lambda input, output: recur(Accuracy, output['target'], input['target'])),
+                       'MAccuracy': (lambda input, output: recur(MAccuracy, output['target'], input['target'],
+                                                                 output['mask'])),
+                       'LabelRatio': (lambda input, output: recur(LabelRatio, output['mask']))}
 
     def make_metric_name(self, metric_name):
         return metric_name
