@@ -6,9 +6,12 @@ import pandas as pd
 from utils import save, load, makedir_exist_ok
 import matplotlib.pyplot as plt
 from collections import defaultdict
+import os
+
+os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
 result_path = './output/result'
-save_format = 'png'
+save_format = 'pdf'
 vis_path = './output/vis/{}'.format(save_format)
 num_experiments = 4
 exp = [str(x) for x in list(range(num_experiments))]
@@ -182,7 +185,7 @@ def make_control_list(file):
         controls = cifar10_controls + svhn_controls + cifar100_controls
     elif file == 'quality':
         control_name = [[['4000'], ['fix', 'fix-batch'], ['100'], ['0.1'], ['non-iid-l-2', 'iid'], ['5'], ['0.5'],
-                         ['1'], ['0', '1']]]
+                         ['1'], ['1', '0']]]
         data_names = [['CIFAR10']]
         model_names = [['wresnet28x2']]
         cifar10_controls_1 = make_controls(data_names, model_names, control_name)
@@ -193,7 +196,8 @@ def make_control_list(file):
 
 
 def main():
-    # files = ['fs', 'ps', 'cd', 'ub', 'loss', 'local-epoch', 'gm', 'sbn', 'alternate', 'fl', 'fsgd', 'frgd', 'fmatch']
+    # files = ['fs', 'ps', 'cd', 'ub', 'loss', 'local-epoch', 'gm', 'sbn', 'alternate', 'fl', 'fsgd', 'frgd', 'fmatch',
+    #          'quality']
     files = ['quality']
     controls = []
     for file in files:
@@ -209,7 +213,8 @@ def main():
     extract_processed_result(extracted_processed_result_history, processed_result_history, [])
     df_exp = make_df_exp(extracted_processed_result_exp)
     df_history = make_df_history(extracted_processed_result_history)
-    make_vis(df_exp, df_history)
+    # make_vis(df_exp, df_history)
+    make_vis_quality(df_history)
     return
 
 
@@ -224,18 +229,27 @@ def process_result(controls):
 
 
 def extract_result(control, model_tag, processed_result_exp, processed_result_history):
+    metric_name_1 = ['Loss', 'Accuracy']
+    metric_name_2 = ['PAccuracy', 'MAccuracy', 'LabelRatio']
     if len(control) == 1:
         exp_idx = exp.index(control[0])
         base_result_path_i = os.path.join(result_path, '{}.pt'.format(model_tag))
         if os.path.exists(base_result_path_i):
             base_result = load(base_result_path_i)
-            for k in base_result['logger']['test'].mean:
-                metric_name = k.split('/')[1]
-                if metric_name not in processed_result_exp:
-                    processed_result_exp[metric_name] = {'exp': [None for _ in range(num_experiments)]}
-                    processed_result_history[metric_name] = {'history': [None for _ in range(num_experiments)]}
-                processed_result_exp[metric_name]['exp'][exp_idx] = base_result['logger']['test'].mean[k]
-                processed_result_history[metric_name]['history'][exp_idx] = base_result['logger']['train'].history[k]
+            for k in base_result['logger']['train'].history:
+                mode, metric_name_i = k.split('/')
+                if (mode == 'test' and metric_name_i in metric_name_1) or (
+                        mode == 'train' and metric_name_i in metric_name_2):
+                    if metric_name_i not in processed_result_history:
+                        processed_result_history[metric_name_i] = {'history': [None for _ in range(num_experiments)]}
+                    processed_result_history[metric_name_i]['history'][exp_idx] = \
+                        base_result['logger']['train'].history[k]
+            for k in base_result['logger']['train'].history:
+                mode, metric_name_i = k.split('/')
+                if mode == 'test' and metric_name_i in metric_name_1:
+                    if metric_name_i not in processed_result_exp:
+                        processed_result_exp[metric_name_i] = {'exp': [None for _ in range(num_experiments)]}
+                    processed_result_exp[metric_name_i]['exp'][exp_idx] = base_result['logger']['test'].mean[k]
         else:
             print('Missing {}'.format(base_result_path_i))
     else:
@@ -247,9 +261,34 @@ def extract_result(control, model_tag, processed_result_exp, processed_result_hi
     return
 
 
+# def extract_result(control, model_tag, processed_result_exp, processed_result_history):
+#     if len(control) == 1:
+#         exp_idx = exp.index(control[0])
+#         base_result_path_i = os.path.join(result_path, '{}.pt'.format(model_tag))
+#         if os.path.exists(base_result_path_i):
+#             base_result = load(base_result_path_i)
+#             for k in base_result['logger']['test'].mean:
+#                 metric_name = k.split('/')[1]
+#                 if metric_name not in processed_result_exp:
+#                     processed_result_exp[metric_name] = {'exp': [None for _ in range(num_experiments)]}
+#                     processed_result_history[metric_name] = {'history': [None for _ in range(num_experiments)]}
+#                 processed_result_exp[metric_name]['exp'][exp_idx] = base_result['logger']['test'].mean[k]
+#                 processed_result_history[metric_name]['history'][exp_idx] = base_result['logger']['train'].history[k]
+#         else:
+#             print('Missing {}'.format(base_result_path_i))
+#     else:
+#         if control[1] not in processed_result_exp:
+#             processed_result_exp[control[1]] = {}
+#             processed_result_history[control[1]] = {}
+#         extract_result([control[0]] + control[2:], model_tag, processed_result_exp[control[1]],
+#                        processed_result_history[control[1]])
+#     return
+
+
 def summarize_result(processed_result):
     if 'exp' in processed_result:
         pivot = 'exp'
+        processed_result[pivot] = [x for x in processed_result[pivot] if x is not None]
         processed_result[pivot] = np.stack(processed_result[pivot], axis=0)
         processed_result['mean'] = np.mean(processed_result[pivot], axis=0).item()
         processed_result['std'] = np.std(processed_result[pivot], axis=0).item()
@@ -260,16 +299,7 @@ def summarize_result(processed_result):
         processed_result[pivot] = processed_result[pivot].tolist()
     elif 'history' in processed_result:
         pivot = 'history'
-        filter_length = []
-        for i in range(len(processed_result[pivot])):
-            x = processed_result[pivot][i]
-            if len(processed_result[pivot][i]) in [400, 800]:
-                filter_length.append(x)
-            elif len(processed_result[pivot][i]) == 801:
-                filter_length.append(x[:800])
-            else:
-                filter_length.append(x + [x[-1]] * (800 - len(x)))
-        processed_result[pivot] = filter_length
+        processed_result[pivot] = [x for x in processed_result[pivot] if x is not None]
         processed_result[pivot] = np.stack(processed_result[pivot], axis=0)
         processed_result['mean'] = np.mean(processed_result[pivot], axis=0)
         processed_result['std'] = np.std(processed_result[pivot], axis=0)
@@ -283,6 +313,44 @@ def summarize_result(processed_result):
             summarize_result(v)
         return
     return
+
+
+# def summarize_result(processed_result):
+#     if 'exp' in processed_result:
+#         pivot = 'exp'
+#         processed_result[pivot] = np.stack(processed_result[pivot], axis=0)
+#         processed_result['mean'] = np.mean(processed_result[pivot], axis=0).item()
+#         processed_result['std'] = np.std(processed_result[pivot], axis=0).item()
+#         processed_result['max'] = np.max(processed_result[pivot], axis=0).item()
+#         processed_result['min'] = np.min(processed_result[pivot], axis=0).item()
+#         processed_result['argmax'] = np.argmax(processed_result[pivot], axis=0).item()
+#         processed_result['argmin'] = np.argmin(processed_result[pivot], axis=0).item()
+#         processed_result[pivot] = processed_result[pivot].tolist()
+#     elif 'history' in processed_result:
+#         pivot = 'history'
+#         filter_length = []
+#         for i in range(len(processed_result[pivot])):
+#             x = processed_result[pivot][i]
+#             if len(processed_result[pivot][i]) in [400, 800]:
+#                 filter_length.append(x)
+#             elif len(processed_result[pivot][i]) == 801:
+#                 filter_length.append(x[:800])
+#             else:
+#                 filter_length.append(x + [x[-1]] * (800 - len(x)))
+#         processed_result[pivot] = filter_length
+#         processed_result[pivot] = np.stack(processed_result[pivot], axis=0)
+#         processed_result['mean'] = np.mean(processed_result[pivot], axis=0)
+#         processed_result['std'] = np.std(processed_result[pivot], axis=0)
+#         processed_result['max'] = np.max(processed_result[pivot], axis=0)
+#         processed_result['min'] = np.min(processed_result[pivot], axis=0)
+#         processed_result['argmax'] = np.argmax(processed_result[pivot], axis=0)
+#         processed_result['argmin'] = np.argmin(processed_result[pivot], axis=0)
+#         processed_result[pivot] = processed_result[pivot].tolist()
+#     else:
+#         for k, v in processed_result.items():
+#             summarize_result(v)
+#         return
+#     return
 
 
 def extract_processed_result(extracted_processed_result, processed_result, control):
@@ -524,6 +592,58 @@ def make_vis(df_exp, df_history):
                 handles = [handles[0], handles[4], handles[2], handles[3], handles[1]]
                 labels = [labels[0], labels[4], labels[2], labels[3], labels[1]]
                 plt.legend(handles, labels, loc=loc_dict[metric_name], fontsize=fontsize['legend'])
+    for fig_name in fig:
+        fig[fig_name] = plt.figure(fig_name)
+        plt.grid()
+        fig_path = '{}/{}.{}'.format(vis_path, fig_name, save_format)
+        makedir_exist_ok(vis_path)
+        plt.savefig(fig_path, dpi=500, bbox_inches='tight', pad_inches=0)
+        plt.close(fig_name)
+    return
+
+
+def make_vis_quality(df_history):
+    label_dict = {'fix-batch_0': 'Average, Training', 'fix-batch_1': 'Fine Tune, Training',
+                            'fix_0': 'Average, Global', 'fix_1': 'Fine Tune, Global'}
+    color = {'fix-batch_0': 'dodgerblue', 'fix-batch_1': 'blue', 'fix_0': 'orange', 'fix_1': 'red'}
+    linestyle = {'fix_1': '-', 'fix_0': '--', 'fix-batch_1': ':', 'fix-batch_0': '-.'}
+    loc_dict = {'Accuracy': 'lower right', 'Loss': 'upper right'}
+    metricname_dict = {'PAccuracy': 'Pseudo Accuracy', 'MAccuracy': 'Thresholded Accuracy', 'LabelRatio': 'Label Ratio'}
+    fontsize = {'legend': 16, 'label': 16, 'ticks': 16}
+    fig = {}
+    for df_name in df_history:
+        df_name_list = df_name.split('_')
+        if len(df_name_list) == 11:
+            data_name, model_name, num_supervised, loss_mode, num_clients, active_rate, data_split_mode, sbn, ft, \
+            metric_name, stat = df_name.split('_')
+            if stat == 'std':
+                continue
+            df_name_std = '_'.join(
+                [data_name, model_name, num_supervised, loss_mode, num_clients, active_rate, data_split_mode, sbn, ft,
+                 metric_name, 'std'])
+            for ((index, row), (_, row_std)) in zip(df_history[df_name].iterrows(), df_history[df_name_std].iterrows()):
+                y = row.to_numpy()
+                yerr = row_std.to_numpy()
+                if ft == '1':
+                    y = y[::3]
+                    yerr = yerr[::3]
+                else:
+                    y = y[::2]
+                    yerr = yerr[::2]
+                x = np.arange(len(y))
+                if metric_name in ['PAccuracy', 'MAccuracy', 'LabelRatio']:
+                    fig_name = '_'.join(
+                        [data_name, model_name, num_supervised, num_clients, active_rate, data_split_mode, sbn,
+                         metric_name])
+                    fig[fig_name] = plt.figure(fig_name)
+                    style = '_'.join([loss_mode, ft])
+                    plt.plot(x, y, color=color[style], linestyle=linestyle[style], label=label_dict[style])
+                    plt.fill_between(x, (y - yerr), (y + yerr), color=color[style], alpha=0.5)
+                    plt.legend(loc=loc_dict['Accuracy'], fontsize=fontsize['legend'])
+                    plt.xlabel('Communication Rounds', fontsize=fontsize['label'])
+                    plt.ylabel(metricname_dict[metric_name], fontsize=fontsize['label'])
+                    plt.xticks(fontsize=fontsize['ticks'])
+                    plt.yticks(fontsize=fontsize['ticks'])
     for fig_name in fig:
         fig[fig_name] = plt.figure(fig_name)
         plt.grid()
