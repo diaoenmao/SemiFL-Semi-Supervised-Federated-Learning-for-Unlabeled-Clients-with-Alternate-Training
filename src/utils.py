@@ -220,15 +220,15 @@ class Stats(object):
         return
 
 
-def make_optimizer(model, tag):
+def make_optimizer(parameters, tag):
     if cfg[tag]['optimizer_name'] == 'SGD':
-        optimizer = optim.SGD(model.parameters(), lr=cfg[tag]['lr'], momentum=cfg[tag]['momentum'],
+        optimizer = optim.SGD(parameters, lr=cfg[tag]['lr'], momentum=cfg[tag]['momentum'],
                               weight_decay=cfg[tag]['weight_decay'], nesterov=cfg[tag]['nesterov'])
     elif cfg[tag]['optimizer_name'] == 'Adam':
-        optimizer = optim.Adam(model.parameters(), lr=cfg[tag]['lr'], betas=cfg[tag]['betas'],
+        optimizer = optim.Adam(parameters, lr=cfg[tag]['lr'], betas=cfg[tag]['betas'],
                                weight_decay=cfg[tag]['weight_decay'])
     elif cfg[tag]['optimizer_name'] == 'LBFGS':
-        optimizer = optim.LBFGS(model.parameters(), lr=cfg[tag]['lr'])
+        optimizer = optim.LBFGS(parameters, lr=cfg[tag]['lr'])
     else:
         raise ValueError('Not valid optimizer name')
     return optimizer

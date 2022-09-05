@@ -43,7 +43,7 @@ def runExperiment():
     process_dataset(dataset)
     data_loader = make_data_loader(dataset, 'global')
     model = eval('models.{}().to(cfg["device"])'.format(cfg['model_name']))
-    optimizer = make_optimizer(model, 'local')
+    optimizer = make_optimizer(model.parameters(), 'local')
     scheduler = make_scheduler(optimizer, 'global')
     batchnorm_dataset = dataset['train']
     data_split = split_dataset(dataset, cfg['num_clients'], cfg['data_split_mode'])

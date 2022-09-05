@@ -1,3 +1,3 @@
 from .utils import *
 from .wresnet import *
-from .resnet import *
+from .decwresnet import *

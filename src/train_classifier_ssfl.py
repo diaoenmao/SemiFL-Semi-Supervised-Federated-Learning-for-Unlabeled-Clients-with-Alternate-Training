@@ -46,7 +46,7 @@ def runExperiment():
                                                                                            client_dataset['train'])
     data_loader = make_data_loader(server_dataset, 'global')
     model = eval('models.{}().to(cfg["device"])'.format(cfg['model_name']))
-    optimizer = make_optimizer(model, 'local')
+    optimizer = make_optimizer(model.parameters(), 'local')
     scheduler = make_scheduler(optimizer, 'global')
     if cfg['sbn'] == 1:
         batchnorm_dataset = make_batchnorm_dataset_su(server_dataset['train'], client_dataset['train'])

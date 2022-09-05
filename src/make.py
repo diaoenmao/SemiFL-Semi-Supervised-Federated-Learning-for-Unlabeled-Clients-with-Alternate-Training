@@ -226,21 +226,21 @@ def main():
     elif file == 'fmatch':
         script_name = [['{}_classifier_ssfl.py'.format(run)]]
         control_name = [[['250', '4000'], ['fix@0.95-fmatch'], ['100'], ['0.1'],
-                         ['iid', 'non-iid-d-0.1', 'non-iid-d-0.3', 'non-iid-l-2'], ['5-5'], ['0.5'], ['1'], ['0']]]
+                         ['iid', 'non-iid-d-0.1', 'non-iid-d-0.3', 'non-iid-l-2'], ['5-5'], ['0.5'], ['1'], ['1']]]
         data_names = [['CIFAR10']]
-        model_names = [['wresnet28x2']]
+        model_names = [['decwresnet28x2']]
         cifar10_controls = make_controls(script_name, data_names, model_names, init_seeds, world_size, num_experiments,
                                          resume_mode, control_name)
         control_name = [[['250', '1000'], ['fix@0.95-fmatch'], ['100'], ['0.1'],
-                         ['iid', 'non-iid-d-0.1', 'non-iid-d-0.3', 'non-iid-l-2'], ['5-5'], ['0.5'], ['1'], ['0']]]
+                         ['iid', 'non-iid-d-0.1', 'non-iid-d-0.3', 'non-iid-l-2'], ['5-5'], ['0.5'], ['1'], ['1']]]
         data_names = [['SVHN']]
-        model_names = [['wresnet28x2']]
+        model_names = [['decwresnet28x2']]
         svhn_controls = make_controls(script_name, data_names, model_names, init_seeds, world_size, num_experiments,
                                       resume_mode, control_name)
         control_name = [[['2500', '10000'], ['fix@0.95-fmatch'], ['100'], ['0.1'],
-                         ['iid', 'non-iid-d-0.1', 'non-iid-d-0.3', 'non-iid-l-2'], ['5-5'], ['0.5'], ['1'], ['0']]]
+                         ['iid', 'non-iid-d-0.1', 'non-iid-d-0.3', 'non-iid-l-2'], ['5-5'], ['0.5'], ['1'], ['1']]]
         data_names = [['CIFAR100']]
-        model_names = [['wresnet28x8']]
+        model_names = [['decwresnet28x8']]
         cifar100_controls = make_controls(script_name, data_names, model_names, init_seeds, world_size, num_experiments,
                                           resume_mode, control_name)
         controls = cifar10_controls + svhn_controls + cifar100_controls

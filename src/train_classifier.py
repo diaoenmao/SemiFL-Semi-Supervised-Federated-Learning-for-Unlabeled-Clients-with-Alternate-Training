@@ -43,7 +43,7 @@ def runExperiment():
     dataset['train'], _, supervised_idx = separate_dataset_su(dataset['train'])
     data_loader = make_data_loader(dataset, cfg['model_name'])
     model = eval('models.{}().to(cfg["device"])'.format(cfg['model_name']))
-    optimizer = make_optimizer(model, cfg['model_name'])
+    optimizer = make_optimizer(model.parameters(), cfg['model_name'])
     scheduler = make_scheduler(optimizer, cfg['model_name'])
     metric = Metric({'train': ['Loss', 'Accuracy'], 'test': ['Loss', 'Accuracy']})
     if cfg['resume_mode'] == 1:
