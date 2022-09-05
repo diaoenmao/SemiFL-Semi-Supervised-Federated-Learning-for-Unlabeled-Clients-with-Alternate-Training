@@ -2,11 +2,11 @@
 # control
 control:
   num_supervised: '4000'
-  loss_mode: 'fix-mix'
+  loss_mode: 'fix@0.95-mix'
   num_clients: '100'
   active_rate: '0.1'
   data_split_mode: 'iid'
-  local_epoch: '5'
+  local_epoch: '5-5'
   gm: '0.5'
   sbn: '1'
   ft: '1'

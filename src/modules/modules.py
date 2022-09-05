@@ -58,7 +58,7 @@ class Server:
         return
 
     def update_parallel(self, client):
-        if cfg['loss_mode'] in ['fix', 'fix-batch']:
+        if 'frgd' not in cfg['loss_mode'] and 'fmatch' not in cfg['loss_mode']:
             with torch.no_grad():
                 valid_client_server = [self] + [client[i] for i in range(len(client)) if client[i].active]
                 if len(valid_client_server) > 0:
@@ -80,7 +80,7 @@ class Server:
                     global_optimizer.step()
                     self.global_optimizer_state_dict = global_optimizer.state_dict()
                     self.model_state_dict = {k: v.cpu() for k, v in model.state_dict().items()}
-        elif cfg['loss_mode'] in ['fix-frgd']:
+        elif 'frgd' in cfg['loss_mode']:
             with torch.no_grad():
                 valid_client_server = [self] + [client[i] for i in range(len(client)) if client[i].active]
                 num_valid_client = len(valid_client_server) - 1
@@ -107,7 +107,7 @@ class Server:
                     global_optimizer.step()
                     self.global_optimizer_state_dict = global_optimizer.state_dict()
                     self.model_state_dict = {k: v.cpu() for k, v in model.state_dict().items()}
-        elif cfg['loss_mode'] in ['fix-fmatch']:
+        elif 'fmatch' in cfg['loss_mode']:
             with torch.no_grad():
                 valid_client_server = [self] + [client[i] for i in range(len(client)) if client[i].active]
                 if len(valid_client_server) > 0:
@@ -144,7 +144,7 @@ class Server:
         return
 
     def train(self, dataset, lr, metric, logger):
-        if cfg['loss_mode'] != 'fix-fmatch':
+        if 'fmatch' not in cfg['loss_mode']:
             data_loader = make_data_loader({'train': dataset}, 'server')['train']
             model = eval('models.{}().to(cfg["device"])'.format(cfg['model_name']))
             model.load_state_dict(self.model_state_dict)
@@ -152,7 +152,11 @@ class Server:
             optimizer = make_optimizer(model, 'local')
             optimizer.load_state_dict(self.optimizer_state_dict)
             model.train(True)
-            for epoch in range(1, cfg['local']['num_epochs'] + 1):
+            if cfg['server']['num_epochs'] == 1:
+                num_batches = np.ceil(len(data_loader) * float(cfg['local_epoch'][1])).item()
+            else:
+                num_batches = None
+            for epoch in range(1, cfg['server']['num_epochs'] + 1):
                 for i, input in enumerate(data_loader):
                     input = collate(input)
                     input_size = input['data'].size(0)
@@ -164,6 +168,8 @@ class Server:
                     optimizer.step()
                     evaluation = metric.evaluate(['Loss', 'Accuracy'], input, output)
                     logger.append(evaluation, 'train', n=input_size)
+                    if num_batches is not None and i == num_batches - 1:
+                        break
             self.model_state_dict = {k: v.cpu() for k, v in model.state_dict().items()}
         else:
             data_loader = make_data_loader({'train': dataset}, 'server')['train']
@@ -173,7 +179,11 @@ class Server:
             optimizer = make_optimizer(model, 'local')
             optimizer.load_state_dict(self.optimizer_state_dict)
             model.train(True)
-            for epoch in range(1, cfg['local']['num_epochs'] + 1):
+            if cfg['server']['num_epochs'] == 1:
+                num_batches = np.ceil(len(data_loader) * float(cfg['local_epoch'][1])).item()
+            else:
+                num_batches = None
+            for epoch in range(1, cfg['server']['num_epochs'] + 1):
                 for i, input in enumerate(data_loader):
                     input = collate(input)
                     input_size = input['data'].size(0)
@@ -189,6 +199,8 @@ class Server:
                     optimizer.step()
                     evaluation = metric.evaluate(['Loss', 'Accuracy'], input, output)
                     logger.append(evaluation, 'train', n=input_size)
+                    if num_batches is not None and i == num_batches - 1:
+                        break
             self.model_state_dict = {k: v.cpu() for k, v in model.state_dict().items()}
         return
 
@@ -254,7 +266,6 @@ class Client:
                     return None
         else:
             raise ValueError('Not valid client loss mode')
-        return
 
     def train(self, dataset, lr, metric, logger):
         if cfg['loss_mode'] == 'sup':
@@ -265,8 +276,11 @@ class Client:
             optimizer = make_optimizer(model, 'local')
             optimizer.load_state_dict(self.optimizer_state_dict)
             model.train(True)
-            model.train(True)
-            for epoch in range(1, cfg['local']['num_epochs'] + 1):
+            if cfg['client']['num_epochs'] == 1:
+                num_batches = np.ceil(len(data_loader) * float(cfg['local_epoch'][0])).item()
+            else:
+                num_batches = None
+            for epoch in range(1, cfg['client']['num_epochs'] + 1):
                 for i, input in enumerate(data_loader):
                     input = collate(input)
                     input_size = input['data'].size(0)
@@ -279,7 +293,9 @@ class Client:
                     optimizer.step()
                     evaluation = metric.evaluate(metric.metric_name['train'], input, output)
                     logger.append(evaluation, 'train', n=input_size)
-        elif cfg['loss_mode'] == 'fix':
+                    if num_batches is not None and i == num_batches - 1:
+                        break
+        elif 'fix' in cfg['loss_mode'] and 'mix' not in cfg['loss_mode']:
             fix_dataset, _ = dataset
             fix_data_loader = make_data_loader({'train': fix_dataset}, 'client')['train']
             model = eval('models.{}().to(cfg["device"])'.format(cfg['model_name']))
@@ -288,7 +304,11 @@ class Client:
             optimizer = make_optimizer(model, 'local')
             optimizer.load_state_dict(self.optimizer_state_dict)
             model.train(True)
-            for epoch in range(1, cfg['local']['num_epochs'] + 1):
+            if cfg['client']['num_epochs'] == 1:
+                num_batches = np.ceil(len(fix_data_loader) * float(cfg['local_epoch'][0])).item()
+            else:
+                num_batches = None
+            for epoch in range(1, cfg['client']['num_epochs'] + 1):
                 for i, input in enumerate(fix_data_loader):
                     input = collate(input)
                     input_size = input['data'].size(0)
@@ -301,7 +321,9 @@ class Client:
                     optimizer.step()
                     evaluation = metric.evaluate(['Loss', 'Accuracy'], input, output)
                     logger.append(evaluation, 'train', n=input_size)
-        elif cfg['loss_mode'] == 'fix-mix':
+                    if num_batches is not None and i == num_batches - 1:
+                        break
+        elif 'fix' in cfg['loss_mode'] and 'mix' in cfg['loss_mode']:
             fix_dataset, mix_dataset = dataset
             fix_data_loader = make_data_loader({'train': fix_dataset}, 'client')['train']
             mix_data_loader = make_data_loader({'train': mix_dataset}, 'client')['train']
@@ -311,7 +333,11 @@ class Client:
             optimizer = make_optimizer(model, 'local')
             optimizer.load_state_dict(self.optimizer_state_dict)
             model.train(True)
-            for epoch in range(1, cfg['local']['num_epochs'] + 1):
+            if cfg['client']['num_epochs'] == 1:
+                num_batches = np.ceil(len(fix_data_loader) * float(cfg['local_epoch'][0])).item()
+            else:
+                num_batches = None
+            for epoch in range(1, cfg['client']['num_epochs'] + 1):
                 for i, (fix_input, mix_input) in enumerate(zip(fix_data_loader, mix_data_loader)):
                     input = {'data': fix_input['data'], 'target': fix_input['target'], 'aug': fix_input['aug'],
                              'mix_data': mix_input['data'], 'mix_target': mix_input['target']}
@@ -329,7 +355,9 @@ class Client:
                     optimizer.step()
                     evaluation = metric.evaluate(['Loss', 'Accuracy'], input, output)
                     logger.append(evaluation, 'train', n=input_size)
-        elif cfg['loss_mode'] in ['fix-batch', 'fix-frgd']:
+                    if num_batches is not None and i == num_batches - 1:
+                        break
+        elif 'batch' in cfg['loss_mode'] or 'frgd' in cfg['loss_mode']:
             data_loader = make_data_loader({'train': dataset}, 'client')['train']
             model = eval('models.{}().to(cfg["device"])'.format(cfg['model_name']))
             model.load_state_dict(self.model_state_dict, strict=False)
@@ -337,7 +365,11 @@ class Client:
             optimizer = make_optimizer(model, 'local')
             optimizer.load_state_dict(self.optimizer_state_dict)
             model.train(True)
-            for epoch in range(1, cfg['local']['num_epochs'] + 1):
+            if cfg['client']['num_epochs'] == 1:
+                num_batches = np.ceil(len(data_loader) * float(cfg['local_epoch'][0])).item()
+            else:
+                num_batches = None
+            for epoch in range(1, cfg['client']['num_epochs'] + 1):
                 for i, input in enumerate(data_loader):
                     with torch.no_grad():
                         model.train(False)
@@ -365,7 +397,9 @@ class Client:
                     optimizer.step()
                     evaluation = metric.evaluate(['Loss', 'Accuracy'], input, output)
                     logger.append(evaluation, 'train', n=input_size)
-        elif cfg['loss_mode'] == 'fix-fmatch':
+                    if num_batches is not None and i == num_batches - 1:
+                        break
+        elif 'fmatch' in cfg['loss_mode']:
             data_loader = make_data_loader({'train': dataset}, 'client')['train']
             model = eval('models.{}().to(cfg["device"])'.format(cfg['model_name']))
             model.load_state_dict(self.model_state_dict, strict=False)
@@ -373,7 +407,11 @@ class Client:
             optimizer = make_optimizer(model, 'local')
             optimizer.load_state_dict(self.optimizer_state_dict)
             model.train(True)
-            for epoch in range(1, cfg['local']['num_epochs'] + 1):
+            if cfg['client']['num_epochs'] == 1:
+                num_batches = np.ceil(len(data_loader) * float(cfg['local_epoch'][0])).item()
+            else:
+                num_batches = None
+            for epoch in range(1, cfg['client']['num_epochs'] + 1):
                 for i, input in enumerate(data_loader):
                     with torch.no_grad():
                         model.train(False)
@@ -405,6 +443,8 @@ class Client:
                     optimizer.step()
                     evaluation = metric.evaluate(['Loss', 'Accuracy'], input, output)
                     logger.append(evaluation, 'train', n=input_size)
+                    if num_batches is not None and i == num_batches - 1:
+                        break
         else:
             raise ValueError('Not valid client loss mode')
         self.optimizer_state_dict = optimizer.state_dict()
