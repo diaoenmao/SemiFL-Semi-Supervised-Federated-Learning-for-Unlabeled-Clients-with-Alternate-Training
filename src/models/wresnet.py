@@ -81,17 +81,19 @@ class WideResNet(nn.Module):
         output = {}
         output['target'] = self.f(input['data'])
         if 'loss_mode' in input:
-            if input['loss_mode'] == 'sup':
+            if 'sup' in input['loss_mode']:
                 output['loss'] = loss_fn(output['target'], input['target'])
-            elif input['loss_mode'] == 'fix':
+            elif 'fix' in input['loss_mode'] and 'mix' not in input['loss_mode']:
                 aug_output = self.f(input['aug'])
                 output['loss'] = loss_fn(aug_output, input['target'].detach())
-            elif input['loss_mode'] == 'fix-mix':
+            elif 'fix' in input['loss_mode'] and 'mix' in input['loss_mode']:
                 aug_output = self.f(input['aug'])
                 output['loss'] = loss_fn(aug_output, input['target'].detach())
                 mix_output = self.f(input['mix_data'])
                 output['loss'] += input['lam'] * loss_fn(mix_output, input['mix_target'][:, 0].detach()) + (
                         1 - input['lam']) * loss_fn(mix_output, input['mix_target'][:, 1].detach())
+            else:
+                raise ValueError('Not valid loss mode')
         else:
             if not torch.any(input['target'] == -1):
                 output['loss'] = loss_fn(output['target'], input['target'])

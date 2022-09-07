@@ -1,4 +1,5 @@
 import math
+import copy
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -10,16 +11,22 @@ class DecConv2d(nn.Conv2d):
     def __init__(self, in_channels: int, out_channels, kernel_size, stride, padding, bias):
         super(DecConv2d, self).__init__(
             in_channels, out_channels, kernel_size, stride, padding, bias=bias)
-        self.sigma_weight = nn.Parameter(copy.deepcopy(self.weight) / 2)
-        self.phi_weight = nn.Parameter(copy.deepcopy(self.weight) / 2)
-        self.weight = self.sigma_weight + self.phi_weight
+        self.sigma_weight = nn.Parameter(copy.deepcopy(self.weight.data) / 2)
+        self.phi_weight = nn.Parameter(copy.deepcopy(self.weight.data) / 2)
+        self.weight = None
         if bias:
-            self.sigma_bias = nn.Parameter(copy.deepcopy(self.bias) / 2)
-            self.phi_bias = nn.Parameter(copy.deepcopy(self.bias) / 2)
-            self.bias = self.sigma_bias + self.phi_bias
+            self.sigma_bias = nn.Parameter(copy.deepcopy(self.bias.data) / 2)
+            self.phi_bias = nn.Parameter(copy.deepcopy(self.bias.data) / 2)
+            self.bias = None
+            self.bias_ = self.sigma_bias + self.phi_bias
         else:
-            self.register_parameter('bias', None)
+            self.register_parameter('bias_', None)
 
+    def forward(self, input):
+        if self.bias is not None:
+            return self._conv_forward(input, self.sigma_weight + self.phi_weight, self.sigma_bias + self.phi_bias)
+        else:
+            return self._conv_forward(input, self.sigma_weight + self.phi_weight, self.bias)
 
 class BasicBlock(nn.Module):
     def __init__(self, in_planes, out_planes, stride, drop_rate):
@@ -95,19 +102,15 @@ class DecWideResNet(nn.Module):
     def make_sigma_parameters(self):
         sigma_parameters = []
         for k, v in self.named_parameters():
-            print(k, v.size())
             if 'sigma' in k:
                 sigma_parameters.append(v)
-        exit()
         return sigma_parameters
 
     def make_phi_parameters(self):
         phi_parameters = []
         for k, v in self.named_parameters():
-            print(k, v.size())
             if 'phi' in k:
                 phi_parameters.append(v)
-        exit()
         return phi_parameters
 
     def forward(self, input):

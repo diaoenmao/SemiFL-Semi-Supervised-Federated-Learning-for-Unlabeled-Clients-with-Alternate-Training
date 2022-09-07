@@ -133,7 +133,7 @@ def train_client(batchnorm_dataset, client_dataset, server, client, optimizer, m
     for i in range(num_active_clients):
         m = client_id[i]
         dataset_m = separate_dataset(client_dataset, client[m].data_split['train'])
-        if cfg['loss_mode'] not in ['fix-batch', 'fix-frgd', 'fix-fmatch']:
+        if 'batch' not in cfg['loss_mode'] and 'frgd' not in cfg['loss_mode'] and 'fmatch' not in cfg['loss_mode']:
             dataset_m = client[m].make_dataset(dataset_m, metric, logger)
         if dataset_m is not None:
             client[m].active = True

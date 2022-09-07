@@ -1,10 +1,13 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
+import models
 
 def init_param(m):
-    if isinstance(m, nn.Conv2d):
+    if isinstance(m, nn.Conv2d) and isinstance(m, models.DecConv2d):
+        nn.init.kaiming_normal_(m.sigma_weight, mode='fan_out', nonlinearity='relu')
+        nn.init.kaiming_normal_(m.phi_weight, mode='fan_out', nonlinearity='relu')
+    elif isinstance(m, nn.Conv2d):
         nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
     elif isinstance(m, nn.BatchNorm2d):
         m.weight.data.fill_(1)

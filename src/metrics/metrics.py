@@ -46,7 +46,7 @@ class Metric(object):
         return metric_name
 
     def make_pivot(self):
-        if cfg['data_name'] in ['CIFAR10', 'CIFAR100', 'SVHN', 'STL10']:
+        if cfg['data_name'] in ['MNIST', 'FashionMNIST', 'CIFAR10', 'CIFAR100', 'SVHN', 'STL10']:
             pivot = -float('inf')
             pivot_direction = 'up'
             pivot_name = 'Accuracy'

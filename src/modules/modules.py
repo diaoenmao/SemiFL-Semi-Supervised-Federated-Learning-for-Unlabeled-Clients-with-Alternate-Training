@@ -147,11 +147,11 @@ class Server:
             model = eval('models.{}().to(cfg["device"])'.format(cfg['model_name']))
             model.load_state_dict(self.model_state_dict)
             self.optimizer_state_dict['param_groups'][0]['lr'] = lr
-            optimizer = make_optimizer(model.sigma_parameters(), 'local')
+            optimizer = make_optimizer(model.parameters(), 'local')
             optimizer.load_state_dict(self.optimizer_state_dict)
             model.train(True)
             if cfg['server']['num_epochs'] == 1:
-                num_batches = np.ceil(len(data_loader) * float(cfg['local_epoch'][1])).item()
+                num_batches = int(np.ceil(len(data_loader) * float(cfg['local_epoch'][1])))
             else:
                 num_batches = None
             for epoch in range(1, cfg['server']['num_epochs'] + 1):
@@ -174,11 +174,11 @@ class Server:
             model = eval('models.{}().to(cfg["device"])'.format(cfg['model_name']))
             model.load_state_dict(self.model_state_dict)
             self.optimizer_state_dict['param_groups'][0]['lr'] = lr
-            optimizer = make_optimizer(model.parameters(), 'local')
+            optimizer = make_optimizer(model.make_sigma_parameters(), 'local')
             optimizer.load_state_dict(self.optimizer_state_dict)
             model.train(True)
             if cfg['server']['num_epochs'] == 1:
-                num_batches = np.ceil(len(data_loader) * float(cfg['local_epoch'][1])).item()
+                num_batches = int(np.ceil(len(data_loader) * float(cfg['local_epoch'][1])))
             else:
                 num_batches = None
             for epoch in range(1, cfg['server']['num_epochs'] + 1):
@@ -278,7 +278,7 @@ class Client:
             optimizer.load_state_dict(self.optimizer_state_dict)
             model.train(True)
             if cfg['client']['num_epochs'] == 1:
-                num_batches = np.ceil(len(data_loader) * float(cfg['local_epoch'][0])).item()
+                num_batches = int(np.ceil(len(data_loader) * float(cfg['local_epoch'][0])))
             else:
                 num_batches = None
             for epoch in range(1, cfg['client']['num_epochs'] + 1):
@@ -296,7 +296,8 @@ class Client:
                     logger.append(evaluation, 'train', n=input_size)
                     if num_batches is not None and i == num_batches - 1:
                         break
-        elif 'fix' in cfg['loss_mode'] and 'mix' not in cfg['loss_mode']:
+        elif 'fix' in cfg['loss_mode'] and 'mix' not in cfg['loss_mode'] and 'batch' not in cfg[
+            'loss_mode'] and 'frgd' not in cfg['loss_mode'] and 'fmatch' not in cfg['loss_mode']:
             fix_dataset, _ = dataset
             fix_data_loader = make_data_loader({'train': fix_dataset}, 'client')['train']
             model = eval('models.{}().to(cfg["device"])'.format(cfg['model_name']))
@@ -306,7 +307,7 @@ class Client:
             optimizer.load_state_dict(self.optimizer_state_dict)
             model.train(True)
             if cfg['client']['num_epochs'] == 1:
-                num_batches = np.ceil(len(fix_data_loader) * float(cfg['local_epoch'][0])).item()
+                num_batches = int(np.ceil(len(fix_data_loader) * float(cfg['local_epoch'][0])))
             else:
                 num_batches = None
             for epoch in range(1, cfg['client']['num_epochs'] + 1):
@@ -324,7 +325,8 @@ class Client:
                     logger.append(evaluation, 'train', n=input_size)
                     if num_batches is not None and i == num_batches - 1:
                         break
-        elif 'fix' in cfg['loss_mode'] and 'mix' in cfg['loss_mode']:
+        elif 'fix' in cfg['loss_mode'] and 'mix' in cfg['loss_mode'] and 'batch' not in cfg[
+            'loss_mode'] and 'frgd' not in cfg['loss_mode'] and 'fmatch' not in cfg['loss_mode']:
             fix_dataset, mix_dataset = dataset
             fix_data_loader = make_data_loader({'train': fix_dataset}, 'client')['train']
             mix_data_loader = make_data_loader({'train': mix_dataset}, 'client')['train']
@@ -335,7 +337,7 @@ class Client:
             optimizer.load_state_dict(self.optimizer_state_dict)
             model.train(True)
             if cfg['client']['num_epochs'] == 1:
-                num_batches = np.ceil(len(fix_data_loader) * float(cfg['local_epoch'][0])).item()
+                num_batches = int(np.ceil(len(fix_data_loader) * float(cfg['local_epoch'][0])))
             else:
                 num_batches = None
             for epoch in range(1, cfg['client']['num_epochs'] + 1):
@@ -370,7 +372,7 @@ class Client:
             optimizer.load_state_dict(self.optimizer_state_dict)
             model.train(True)
             if cfg['client']['num_epochs'] == 1:
-                num_batches = np.ceil(len(data_loader) * float(cfg['local_epoch'][0])).item()
+                num_batches = int(np.ceil(len(data_loader) * float(cfg['local_epoch'][0])))
             else:
                 num_batches = None
             for epoch in range(1, cfg['client']['num_epochs'] + 1):
