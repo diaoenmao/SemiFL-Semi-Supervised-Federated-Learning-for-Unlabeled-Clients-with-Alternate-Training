@@ -9,28 +9,28 @@ import models
 from itertools import compress
 from config import cfg
 from data import make_data_loader, make_batchnorm_stats, FixTransform, MixDataset
-from utils import to_device, make_optimizer, collate
+from utils import to_device, make_optimizer, collate, to_device
 from metrics import Accuracy
 
 
 class Server:
     def __init__(self, model):
-        self.model_state_dict = {k: v.cpu() for k, v in model.state_dict().items()}
+        self.model_state_dict = save_model_state_dict(model.state_dict())
         if 'fmatch' in cfg['loss_mode']:
             optimizer = make_optimizer(model.make_sigma_parameters(), 'local')
             global_optimizer = make_optimizer(model.make_phi_parameters(), 'global')
         else:
             optimizer = make_optimizer(model.parameters(), 'local')
             global_optimizer = make_optimizer(model.parameters(), 'global')
-        self.optimizer_state_dict = optimizer.state_dict()
-        self.global_optimizer_state_dict = global_optimizer.state_dict()
+        self.optimizer_state_dict = save_optimizer_state_dict(optimizer.state_dict())
+        self.global_optimizer_state_dict = save_optimizer_state_dict(global_optimizer.state_dict())
 
     def distribute(self, client, batchnorm_dataset=None):
         model = eval('models.{}().to(cfg["device"])'.format(cfg['model_name']))
         model.load_state_dict(self.model_state_dict)
         if batchnorm_dataset is not None:
             model = make_batchnorm_stats(batchnorm_dataset, model, 'global')
-        model_state_dict = {k: v.cpu() for k, v in model.state_dict().items()}
+        model_state_dict = save_model_state_dict(model.state_dict())
         for m in range(len(client)):
             if client[m].active:
                 client[m].model_state_dict = copy.deepcopy(model_state_dict)
@@ -56,8 +56,8 @@ class Server:
                                 tmp_v += weight[m] * valid_client[m].model_state_dict[k]
                             v.grad = (v.data - tmp_v).detach()
                     global_optimizer.step()
-                    self.global_optimizer_state_dict = global_optimizer.state_dict()
-                    self.model_state_dict = {k: v.cpu() for k, v in model.state_dict().items()}
+                    self.global_optimizer_state_dict = save_optimizer_state_dict(global_optimizer.state_dict())
+                    self.model_state_dict = save_model_state_dict(model.state_dict())
         elif 'fmatch' in cfg['loss_mode']:
             with torch.no_grad():
                 valid_client = [client[i] for i in range(len(client)) if client[i].active]
@@ -77,8 +77,8 @@ class Server:
                                 tmp_v += weight[m] * valid_client[m].model_state_dict[k]
                             v.grad = (v.data - tmp_v).detach()
                     global_optimizer.step()
-                    self.global_optimizer_state_dict = global_optimizer.state_dict()
-                    self.model_state_dict = {k: v.cpu() for k, v in model.state_dict().items()}
+                    self.global_optimizer_state_dict = save_optimizer_state_dict(global_optimizer.state_dict())
+                    self.model_state_dict = save_model_state_dict(model.state_dict())
         else:
             raise ValueError('Not valid loss mode')
         for i in range(len(client)):
@@ -106,8 +106,8 @@ class Server:
                                 tmp_v += weight[m] * valid_client_server[m].model_state_dict[k]
                             v.grad = (v.data - tmp_v).detach()
                     global_optimizer.step()
-                    self.global_optimizer_state_dict = global_optimizer.state_dict()
-                    self.model_state_dict = {k: v.cpu() for k, v in model.state_dict().items()}
+                    self.global_optimizer_state_dict = save_optimizer_state_dict(global_optimizer.state_dict())
+                    self.model_state_dict = save_model_state_dict(model.state_dict())
         elif 'frgd' in cfg['loss_mode']:
             with torch.no_grad():
                 valid_client_server = [self] + [client[i] for i in range(len(client)) if client[i].active]
@@ -133,8 +133,8 @@ class Server:
                             tmp_v = (tmp_v_1 + tmp_v_2) / 2
                             v.grad = (v.data - tmp_v).detach()
                     global_optimizer.step()
-                    self.global_optimizer_state_dict = global_optimizer.state_dict()
-                    self.model_state_dict = {k: v.cpu() for k, v in model.state_dict().items()}
+                    self.global_optimizer_state_dict = save_optimizer_state_dict(global_optimizer.state_dict())
+                    self.model_state_dict = save_model_state_dict(model.state_dict())
         else:
             raise ValueError('Not valid loss mode')
         for i in range(len(client)):
@@ -168,7 +168,6 @@ class Server:
                     logger.append(evaluation, 'train', n=input_size)
                     if num_batches is not None and i == num_batches - 1:
                         break
-            self.model_state_dict = {k: v.cpu() for k, v in model.state_dict().items()}
         else:
             data_loader = make_data_loader({'train': dataset}, 'server')['train']
             model = eval('models.{}().to(cfg["device"])'.format(cfg['model_name']))
@@ -199,7 +198,8 @@ class Server:
                     logger.append(evaluation, 'train', n=input_size)
                     if num_batches is not None and i == num_batches - 1:
                         break
-            self.model_state_dict = {k: v.cpu() for k, v in model.state_dict().items()}
+        self.optimizer_state_dict = save_optimizer_state_dict(optimizer.state_dict())
+        self.model_state_dict = save_model_state_dict(model.state_dict())
         return
 
 
@@ -207,12 +207,12 @@ class Client:
     def __init__(self, client_id, model, data_split):
         self.client_id = client_id
         self.data_split = data_split
-        self.model_state_dict = {k: v.cpu() for k, v in model.state_dict().items()}
+        self.model_state_dict = save_model_state_dict(model.state_dict())
         if 'fmatch' in cfg['loss_mode']:
             optimizer = make_optimizer(model.make_phi_parameters(), 'local')
         else:
             optimizer = make_optimizer(model.parameters(), 'local')
-        self.optimizer_state_dict = optimizer.state_dict()
+        self.optimizer_state_dict = save_optimizer_state_dict(optimizer.state_dict())
         self.active = False
         self.beta = torch.distributions.beta.Beta(torch.tensor([cfg['alpha']]), torch.tensor([cfg['alpha']]))
         self.verbose = cfg['verbose']
@@ -407,6 +407,20 @@ class Client:
                         break
         else:
             raise ValueError('Not valid client loss mode')
-        self.optimizer_state_dict = optimizer.state_dict()
-        self.model_state_dict = {k: v.cpu() for k, v in model.state_dict().items()}
+        self.optimizer_state_dict = save_optimizer_state_dict(optimizer.state_dict())
+        self.model_state_dict = save_model_state_dict(model.state_dict())
         return
+
+
+def save_model_state_dict(model_state_dict):
+    return {k: v.cpu() for k, v in model_state_dict.items()}
+
+
+def save_optimizer_state_dict(optimizer_state_dict):
+    optimizer_state_dict_ = {}
+    for k, v in optimizer_state_dict.items():
+        if k == 'state':
+            optimizer_state_dict_[k] = to_device(optimizer_state_dict[k], 'cpu')
+        else:
+            optimizer_state_dict_[k] = copy.deepcopy(optimizer_state_dict[k])
+    return optimizer_state_dict_

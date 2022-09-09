@@ -142,7 +142,10 @@ def process_control():
             cfg['lc'] = int(cfg['control']['lc'])
         cfg['server'] = {}
         cfg['server']['shuffle'] = {'train': True, 'test': False}
-        cfg['server']['batch_size'] = {'train': 10, 'test': 250}
+        if cfg['num_supervised'] > 1000:
+            cfg['server']['batch_size'] = {'train': 250, 'test': 500}
+        else:
+            cfg['server']['batch_size'] = {'train': 10, 'test': 500}
         cfg['server']['num_epochs'] = int(np.ceil(float(cfg['local_epoch'][1])))
         cfg['client'] = {}
         cfg['client']['shuffle'] = {'train': True, 'test': False}
