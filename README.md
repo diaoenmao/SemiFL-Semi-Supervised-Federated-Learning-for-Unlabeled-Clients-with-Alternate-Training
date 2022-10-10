@@ -10,7 +10,7 @@ This is an implementation of [SemiFL: Semi-Supervised Federated Learning for Unl
 </p>
 
 ## Requirements
-See requirements.txt
+See ·requirements.txt·
 
 ## Instructions
  - Global hyperparameters are configured in `config.yml`
