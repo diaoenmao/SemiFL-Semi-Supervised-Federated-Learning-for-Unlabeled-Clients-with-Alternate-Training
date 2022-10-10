@@ -26,8 +26,8 @@ def make_controls(data_names, model_names, control_name):
     return controls
 
 
-def make_control_list(file):
-    if file == 'fs':
+def make_control_list(mode):
+    if mode == 'fs':
         control_name = [[['fs']]]
         data_names = [['CIFAR10']]
         model_names = [['wresnet28x2']]
@@ -39,7 +39,7 @@ def make_control_list(file):
         model_names = [['wresnet28x8']]
         cifar100_controls = make_controls(data_names, model_names, control_name)
         controls = cifar10_controls + svhn_controls + cifar100_controls
-    elif file == 'ps':
+    elif mode == 'ps':
         control_name = [[['250', '4000']]]
         data_names = [['CIFAR10']]
         model_names = [['wresnet28x2']]
@@ -53,158 +53,148 @@ def make_control_list(file):
         model_names = [['wresnet28x8']]
         cifar100_controls = make_controls(data_names, model_names, control_name)
         controls = cifar10_controls + svhn_controls + cifar100_controls
-    elif file == 'cd':
-        control_name = [[['250', '4000'], ['fix-mix'], ['100'], ['0.1'], ['iid', 'non-iid-l-2'], ['5'], ['0.5'], ['1']]]
-        data_names = [['CIFAR10']]
-        model_names = [['wresnet28x2']]
-        cifar10_controls = make_controls(data_names, model_names, control_name)
-        control_name = [[['250', '1000'], ['fix-mix'], ['100'], ['0.1'], ['iid', 'non-iid-l-2'], ['5'], ['0.5'], ['1']]]
-        data_names = [['SVHN']]
-        model_names = [['wresnet28x2']]
-        svhn_controls = make_controls(data_names, model_names, control_name)
-        control_name = [[['2500', '10000'], ['fix-mix'], ['100'], ['0.1'], ['iid', 'non-iid-l-2'], ['5'], ['0.5'],
-                         ['1']]]
-        data_names = [['CIFAR100']]
-        model_names = [['wresnet28x8']]
-        cifar100_controls = make_controls(data_names, model_names, control_name)
-        controls = cifar10_controls + svhn_controls + cifar100_controls
-    elif file == 'ub':
+    elif mode == 'fl':
         control_name = [
-            [['250', '4000'], ['fix-mix'], ['100'], ['0.1'], ['non-iid-d-0.1', 'non-iid-d-0.3'], ['5'], ['0.5'], ['1']]]
+            [['fs'], ['sup'], ['100'], ['0.1'], ['iid', 'non-iid-d-0.3', 'non-iid-d-0.1', 'non-iid-l-2'], ['5-0'],
+             ['0.5'], ['1']]]
         data_names = [['CIFAR10']]
         model_names = [['wresnet28x2']]
         cifar10_controls = make_controls(data_names, model_names, control_name)
         control_name = [
-            [['250', '1000'], ['fix-mix'], ['100'], ['0.1'], ['non-iid-d-0.1', 'non-iid-d-0.3'], ['5'], ['0.5'], ['1']]]
+            [['fs'], ['sup'], ['100'], ['0.1'], ['iid', 'non-iid-d-0.3', 'non-iid-d-0.1', 'non-iid-l-2'], ['5-0'],
+             ['0.5'], ['1']]]
         data_names = [['SVHN']]
         model_names = [['wresnet28x2']]
         svhn_controls = make_controls(data_names, model_names, control_name)
-        control_name = [[['2500', '10000'], ['fix-mix'], ['100'], ['0.1'], ['non-iid-d-0.1', 'non-iid-d-0.3'], ['5'],
-                         ['0.5'], ['1']]]
+        control_name = [
+            [['fs'], ['sup'], ['100'], ['0.1'], ['iid', 'non-iid-d-0.3', 'non-iid-d-0.1', 'non-iid-l-2'], ['5-0'],
+             ['0.5'], ['1']]]
         data_names = [['CIFAR100']]
         model_names = [['wresnet28x8']]
         cifar100_controls = make_controls(data_names, model_names, control_name)
         controls = cifar10_controls + svhn_controls + cifar100_controls
-    elif file == 'loss':
-        control_name = [[['4000'], ['fix'], ['100'], ['0.1'], ['iid', 'non-iid-l-2'], ['5'], ['0.5'], ['1']]]
+    elif mode == 'ssfl':
+        control_name = [
+            [['250', '4000'], ['fix@0.95-mix'], ['100'], ['0.1'],
+             ['iid', 'non-iid-d-0.3', 'non-iid-d-0.1', 'non-iid-l-2'], ['5-5'], ['0.5'], ['1']]]
+        data_names = [['CIFAR10']]
+        model_names = [['wresnet28x2']]
+        cifar10_controls = make_controls(data_names, model_names, control_name)
+        control_name = [
+            [['250', '1000'], ['fix@0.95-mix'], ['100'], ['0.1'],
+             ['iid', 'non-iid-d-0.3', 'non-iid-d-0.1', 'non-iid-l-2'], ['5-5'], ['0.5'], ['1']]]
+        data_names = [['SVHN']]
+        model_names = [['wresnet28x2']]
+        svhn_controls = make_controls(data_names, model_names, control_name)
+        control_name = [
+            [['2500', '10000'], ['fix@0.95-mix'], ['100'], ['0.1'],
+             ['iid', 'non-iid-d-0.3', 'non-iid-d-0.1', 'non-iid-l-2'], ['5-5'], ['0.5'], ['1']]]
+        data_names = [['CIFAR100']]
+        model_names = [['wresnet28x8']]
+        cifar100_controls = make_controls(data_names, model_names, control_name)
+        controls = cifar10_controls + svhn_controls + cifar100_controls
+    elif mode == 'frgd':
+        control_name = [
+            [['250', '4000'], ['fix@0.95-frgd'], ['100'], ['0.1'],
+             ['iid', 'non-iid-d-0.3', 'non-iid-d-0.1', 'non-iid-l-2'], ['5-5'], ['0.5'], ['1'], ['0']]]
+        data_names = [['CIFAR10']]
+        model_names = [['wresnet28x2']]
+        cifar10_controls = make_controls(data_names, model_names, control_name)
+        control_name = [
+            [['250', '1000'], ['fix@0.95-frgd'], ['100'], ['0.1'],
+             ['iid', 'non-iid-d-0.3', 'non-iid-d-0.1', 'non-iid-l-2'], ['5-5'], ['0.5'], ['1'], ['0']]]
+        data_names = [['SVHN']]
+        model_names = [['wresnet28x2']]
+        svhn_controls = make_controls(data_names, model_names, control_name)
+        control_name = [[['2500', '10000'], ['fix@0.95-frgd'], ['100'], ['0.1'],
+                         ['iid', 'non-iid-d-0.3', 'non-iid-d-0.1', 'non-iid-l-2'], ['5-5'], ['0.5'], ['1'], ['0']]]
+        data_names = [['CIFAR100']]
+        model_names = [['wresnet28x8']]
+        cifar100_controls = make_controls(data_names, model_names, control_name)
+        controls = cifar10_controls + svhn_controls + cifar100_controls
+    elif mode == 'fmatch':
+        control_name = [[['250', '4000'], ['fix@0.95-fmatch'], ['100'], ['0.1'],
+                         ['iid', 'non-iid-d-0.3', 'non-iid-d-0.1', 'non-iid-l-2'], ['5-5'], ['0.5'], ['1'], ['1']]]
+        data_names = [['CIFAR10']]
+        model_names = [['decwresnet28x2']]
+        cifar10_controls = make_controls(data_names, model_names, control_name)
+        control_name = [[['250', '1000'], ['fix@0.95-fmatch'], ['100'], ['0.1'],
+                         ['iid', 'non-iid-d-0.3', 'non-iid-d-0.1', 'non-iid-l-2'], ['5-5'], ['0.5'], ['1'], ['1']]]
+        data_names = [['SVHN']]
+        model_names = [['decwresnet28x2']]
+        svhn_controls = make_controls(data_names, model_names, control_name)
+        control_name = [[['2500', '10000'], ['fix@0.95-fmatch'], ['100'], ['0.1'],
+                         ['iid', 'non-iid-d-0.3', 'non-iid-d-0.1', 'non-iid-l-2'], ['5-5'], ['0.5'], ['1'], ['1']]]
+        data_names = [['CIFAR100']]
+        model_names = [['decwresnet28x8']]
+        cifar100_controls = make_controls(data_names, model_names, control_name)
+        controls = cifar10_controls + svhn_controls + cifar100_controls
+    elif mode == 'tau':
+        control_name = [[['250', '4000'], ['fix@0-mix', 'fix@0.5-mix', 'fix@0.99-mix'], ['100'], ['0.1'],
+                         ['iid'], ['5-5'], ['0.5'], ['1']]]
         data_names = [['CIFAR10']]
         model_names = [['wresnet28x2']]
         cifar10_controls = make_controls(data_names, model_names, control_name)
         controls = cifar10_controls
-    elif file == 'local-epoch':
-        control_name = [[['4000'], ['fix-mix'], ['100'], ['0.1'], ['iid', 'non-iid-l-2'], ['1'], ['0.5'], ['1']]]
+    elif mode == 'mix':
+        control_name = [[['250', '4000'], ['fix@0.95'], ['100'], ['0.1'], ['iid'], ['5-5'], ['0.5'], ['1']]]
         data_names = [['CIFAR10']]
         model_names = [['wresnet28x2']]
         cifar10_controls = make_controls(data_names, model_names, control_name)
         controls = cifar10_controls
-    elif file == 'gm':
-        control_name = [[['4000'], ['fix-mix'], ['100'], ['0.1'], ['iid', 'non-iid-l-2'], ['5'], ['0'], ['1']]]
+    elif mode == 'lu':
+        control_name = [
+            [['250', '4000'], ['fix@0.95-mix'], ['100'], ['0.1'], ['iid'], ['0.001-0.001', '0.1-0.1', '1-1', '10-10'],
+             ['0.5'], ['1']]]
         data_names = [['CIFAR10']]
         model_names = [['wresnet28x2']]
         cifar10_controls = make_controls(data_names, model_names, control_name)
         controls = cifar10_controls
-    elif file == 'sbn':
-        control_name = [[['250', '4000'], ['fix-mix'], ['100'], ['0.1'], ['iid', 'non-iid-l-2'], ['5'], ['0.5'], ['0']]]
+    elif mode == 'lu-s':
+        control_name = [
+            [['250', '4000'], ['fix@0.95-mix'], ['100'], ['0.1'], ['iid'], ['0.001-5', '0.1-5', '1-5', '10-5'],
+             ['0.5'], ['1']]]
         data_names = [['CIFAR10']]
         model_names = [['wresnet28x2']]
         cifar10_controls = make_controls(data_names, model_names, control_name)
         controls = cifar10_controls
-    elif file == 'alternate':
-        control_name = [[['4000'], ['fix-batch'], ['100'], ['0.1'], ['iid', 'non-iid-l-2'], ['5'], ['0.5'],
-                         ['1']]]
+    elif mode == 'gm':
+        control_name = [
+            [['250', '4000'], ['fix@0.95-mix'], ['100'], ['0.1'], ['iid'], ['5-5'], ['0', '0.9'], ['1']]]
+        data_names = [['CIFAR10']]
+        model_names = [['wresnet28x2']]
+        cifar10_controls = make_controls(data_names, model_names, control_name)
+        controls = cifar10_controls
+    elif mode == 'sbn':
+        control_name = [
+            [['250', '4000'], ['fix@0.95-mix'], ['100'], ['0.1'], ['iid'], ['5-5'], ['0.5'], ['0']]]
+        data_names = [['CIFAR10']]
+        model_names = [['wresnet28x2']]
+        cifar10_controls = make_controls(data_names, model_names, control_name)
+        controls = cifar10_controls
+    elif mode == 'alternate':
+        control_name = [[['250', '4000'], ['fix@0.95-batch'], ['100'], ['0.1'], ['iid'],
+                         ['0.001-0.001', '0.1-0.1', '1-1', '5-5', '10-10'], ['0.5'], ['1']]]
         data_names = [['CIFAR10']]
         model_names = [['wresnet28x2']]
         cifar10_controls_1 = make_controls(data_names, model_names, control_name)
-        control_name = [[['4000'], ['fix', 'fix-batch'], ['100'], ['0.1'], ['iid', 'non-iid-l-2'], ['5'], ['0.5'],
-                         ['1'], ['0']]]
+        control_name = [[['4000'], ['fix@0.95', 'fix@0.95-batch'], ['100'], ['0.1'], ['iid'],
+                         ['0.001-0.001', '0.1-0.1', '1-1', '5-5', '10-10'], ['0.5'], ['1'], ['0']]]
         data_names = [['CIFAR10']]
         model_names = [['wresnet28x2']]
         cifar10_controls_2 = make_controls(data_names, model_names, control_name)
         controls = cifar10_controls_1 + cifar10_controls_2
-    elif file == 'fl':
-        control_name = [
-            [['fs'], ['sup'], ['100'], ['0.1'], ['iid', 'non-iid-d-0.1', 'non-iid-d-0.3', 'non-iid-l-2'], ['5'],
-             ['0.5'], ['1']]]
-        data_names = [['CIFAR10']]
-        model_names = [['wresnet28x2']]
-        cifar10_controls = make_controls(data_names, model_names, control_name)
-        control_name = [
-            [['fs'], ['sup'], ['100'], ['0.1'], ['iid', 'non-iid-d-0.1', 'non-iid-d-0.3', 'non-iid-l-2'], ['5'],
-             ['0.5'], ['1']]]
-        data_names = [['SVHN']]
-        model_names = [['wresnet28x2']]
-        svhn_controls = make_controls(data_names, model_names, control_name)
-        control_name = [
-            [['fs'], ['sup'], ['100'], ['0.1'], ['iid', 'non-iid-d-0.1', 'non-iid-d-0.3', 'non-iid-l-2'], ['5'],
-             ['0.5'], ['1']]]
-        data_names = [['CIFAR100']]
-        model_names = [['wresnet28x8']]
-        cifar100_controls = make_controls(data_names, model_names, control_name)
-        controls = cifar10_controls + svhn_controls + cifar100_controls
-    elif file == 'fsgd':
-        control_name = [[['4000'], ['fix-fsgd'], ['100'], ['0.1'], ['iid', 'non-iid-l-2'], ['0'], ['0'], ['1']]]
-        data_names = [['CIFAR10']]
-        model_names = [['wresnet28x2']]
-        cifar10_controls = make_controls(data_names, model_names, control_name)
-        controls = cifar10_controls
-    elif file == 'frgd':
-        control_name = [
-            [['250', '4000'], ['fix-frgd'], ['100'], ['0.1'], ['iid', 'non-iid-d-0.1', 'non-iid-d-0.3', 'non-iid-l-2'],
-             ['5'], ['0.5'], ['1'], ['0']]]
-        data_names = [['CIFAR10']]
-        model_names = [['wresnet28x2']]
-        cifar10_controls = make_controls(data_names, model_names, control_name)
-        control_name = [
-            [['250', '1000'], ['fix-frgd'], ['100'], ['0.1'], ['iid', 'non-iid-d-0.1', 'non-iid-d-0.3', 'non-iid-l-2'],
-             ['5'], ['0.5'], ['1'], ['0']]]
-        data_names = [['SVHN']]
-        model_names = [['wresnet28x2']]
-        svhn_controls = make_controls(data_names, model_names, control_name)
-        control_name = [[['2500', '10000'], ['fix-frgd'], ['100'], ['0.1'],
-                         ['iid', 'non-iid-d-0.1', 'non-iid-d-0.3', 'non-iid-l-2'], ['5'], ['0.5'], ['1'], ['0']]]
-        data_names = [['CIFAR100']]
-        model_names = [['wresnet28x8']]
-        cifar100_controls = make_controls(data_names, model_names, control_name)
-        controls = cifar10_controls + svhn_controls + cifar100_controls
-    elif file == 'fmatch':
-        control_name = [[['250', '4000'], ['fix-fmatch'], ['100'], ['0.1'],
-                         ['iid', 'non-iid-d-0.1', 'non-iid-d-0.3', 'non-iid-l-2'], ['5'], ['0.5'], ['1'], ['0']]]
-        data_names = [['CIFAR10']]
-        model_names = [['wresnet28x2']]
-        cifar10_controls = make_controls(data_names, model_names, control_name)
-        control_name = [[['250', '1000'], ['fix-fmatch'], ['100'], ['0.1'],
-                         ['iid', 'non-iid-d-0.1', 'non-iid-d-0.3', 'non-iid-l-2'], ['5'], ['0.5'], ['1'], ['0']]]
-        data_names = [['SVHN']]
-        model_names = [['wresnet28x2']]
-        svhn_controls = make_controls(data_names, model_names, control_name)
-        control_name = [[['2500', '10000'], ['fix-fmatch'], ['100'], ['0.1'],
-                         ['iid', 'non-iid-d-0.1', 'non-iid-d-0.3', 'non-iid-l-2'], ['5'], ['0.5'], ['1'], ['0']]]
-        data_names = [['CIFAR100']]
-        model_names = [['wresnet28x8']]
-        cifar100_controls = make_controls(data_names, model_names, control_name)
-        controls = cifar10_controls + svhn_controls + cifar100_controls
-    elif file == 'quality':
-        control_name = [[['4000'], ['fix', 'fix-batch'], ['100'], ['0.1'], ['non-iid-l-2', 'iid'], ['5'], ['0.5'],
-                         ['1'], ['1', '0']]]
-        data_names = [['CIFAR10']]
-        model_names = [['wresnet28x2']]
-        cifar10_controls_1 = make_controls(data_names, model_names, control_name)
-        controls = cifar10_controls_1
     else:
-        raise ValueError('Not valid file')
+        raise ValueError('Not valid mode')
     return controls
 
 
 def main():
-    # files = ['fs', 'ps', 'cd', 'ub', 'loss', 'local-epoch', 'gm', 'sbn', 'alternate', 'fl', 'fsgd', 'frgd', 'fmatch',
-    #          'quality']
-    files = ['quality']
+    modes = ['fs', 'ps', 'fl', 'ssfl', 'frgd', 'fmatch', 'tau', 'mix', 'lu', 'lu-s', 'gm', 'sbn', 'alternate']
     controls = []
-    for file in files:
-        controls += make_control_list(file)
+    for mode in modes:
+        controls += make_control_list(mode)
     processed_result_exp, processed_result_history = process_result(controls)
-    with open('{}/processed_result_exp.json'.format(result_path), 'w') as fp:
-        json.dump(processed_result_exp, fp, indent=2)
     save(processed_result_exp, os.path.join(result_path, 'processed_result_exp.pt'))
     save(processed_result_history, os.path.join(result_path, 'processed_result_history.pt'))
     extracted_processed_result_exp = {}
@@ -214,7 +204,7 @@ def main():
     df_exp = make_df_exp(extracted_processed_result_exp)
     df_history = make_df_history(extracted_processed_result_history)
     # make_vis(df_exp, df_history)
-    make_vis_quality(df_history)
+    # make_vis_quality(df_history)
     return
 
 
@@ -261,30 +251,6 @@ def extract_result(control, model_tag, processed_result_exp, processed_result_hi
     return
 
 
-# def extract_result(control, model_tag, processed_result_exp, processed_result_history):
-#     if len(control) == 1:
-#         exp_idx = exp.index(control[0])
-#         base_result_path_i = os.path.join(result_path, '{}.pt'.format(model_tag))
-#         if os.path.exists(base_result_path_i):
-#             base_result = load(base_result_path_i)
-#             for k in base_result['logger']['test'].mean:
-#                 metric_name = k.split('/')[1]
-#                 if metric_name not in processed_result_exp:
-#                     processed_result_exp[metric_name] = {'exp': [None for _ in range(num_experiments)]}
-#                     processed_result_history[metric_name] = {'history': [None for _ in range(num_experiments)]}
-#                 processed_result_exp[metric_name]['exp'][exp_idx] = base_result['logger']['test'].mean[k]
-#                 processed_result_history[metric_name]['history'][exp_idx] = base_result['logger']['train'].history[k]
-#         else:
-#             print('Missing {}'.format(base_result_path_i))
-#     else:
-#         if control[1] not in processed_result_exp:
-#             processed_result_exp[control[1]] = {}
-#             processed_result_history[control[1]] = {}
-#         extract_result([control[0]] + control[2:], model_tag, processed_result_exp[control[1]],
-#                        processed_result_history[control[1]])
-#     return
-
-
 def summarize_result(processed_result):
     if 'exp' in processed_result:
         pivot = 'exp'
@@ -299,6 +265,16 @@ def summarize_result(processed_result):
         processed_result[pivot] = processed_result[pivot].tolist()
     elif 'history' in processed_result:
         pivot = 'history'
+        filter_length = []
+        for i in range(len(processed_result[pivot])):
+            x = processed_result[pivot][i]
+            if x is None:
+                continue
+            if len(processed_result[pivot][i]) in [400, 800, 1600, 2400]:
+                filter_length.append(x)
+            elif len(processed_result[pivot][i]) == 801:
+                filter_length.append(x[:800])
+        processed_result[pivot] = filter_length
         processed_result[pivot] = [x for x in processed_result[pivot] if x is not None]
         processed_result[pivot] = np.stack(processed_result[pivot], axis=0)
         processed_result['mean'] = np.mean(processed_result[pivot], axis=0)
@@ -313,44 +289,6 @@ def summarize_result(processed_result):
             summarize_result(v)
         return
     return
-
-
-# def summarize_result(processed_result):
-#     if 'exp' in processed_result:
-#         pivot = 'exp'
-#         processed_result[pivot] = np.stack(processed_result[pivot], axis=0)
-#         processed_result['mean'] = np.mean(processed_result[pivot], axis=0).item()
-#         processed_result['std'] = np.std(processed_result[pivot], axis=0).item()
-#         processed_result['max'] = np.max(processed_result[pivot], axis=0).item()
-#         processed_result['min'] = np.min(processed_result[pivot], axis=0).item()
-#         processed_result['argmax'] = np.argmax(processed_result[pivot], axis=0).item()
-#         processed_result['argmin'] = np.argmin(processed_result[pivot], axis=0).item()
-#         processed_result[pivot] = processed_result[pivot].tolist()
-#     elif 'history' in processed_result:
-#         pivot = 'history'
-#         filter_length = []
-#         for i in range(len(processed_result[pivot])):
-#             x = processed_result[pivot][i]
-#             if len(processed_result[pivot][i]) in [400, 800]:
-#                 filter_length.append(x)
-#             elif len(processed_result[pivot][i]) == 801:
-#                 filter_length.append(x[:800])
-#             else:
-#                 filter_length.append(x + [x[-1]] * (800 - len(x)))
-#         processed_result[pivot] = filter_length
-#         processed_result[pivot] = np.stack(processed_result[pivot], axis=0)
-#         processed_result['mean'] = np.mean(processed_result[pivot], axis=0)
-#         processed_result['std'] = np.std(processed_result[pivot], axis=0)
-#         processed_result['max'] = np.max(processed_result[pivot], axis=0)
-#         processed_result['min'] = np.min(processed_result[pivot], axis=0)
-#         processed_result['argmax'] = np.argmax(processed_result[pivot], axis=0)
-#         processed_result['argmin'] = np.argmin(processed_result[pivot], axis=0)
-#         processed_result[pivot] = processed_result[pivot].tolist()
-#     else:
-#         for k, v in processed_result.items():
-#             summarize_result(v)
-#         return
-#     return
 
 
 def extract_processed_result(extracted_processed_result, processed_result, control):
@@ -604,7 +542,7 @@ def make_vis(df_exp, df_history):
 
 def make_vis_quality(df_history):
     label_dict = {'fix-batch_0': 'Average, Training', 'fix-batch_1': 'Fine Tune, Training',
-                            'fix_0': 'Average, Global', 'fix_1': 'Fine Tune, Global'}
+                  'fix_0': 'Average, Global', 'fix_1': 'Fine Tune, Global'}
     color = {'fix-batch_0': 'dodgerblue', 'fix-batch_1': 'blue', 'fix_0': 'orange', 'fix_1': 'red'}
     linestyle = {'fix_1': '-', 'fix_0': '--', 'fix-batch_1': ':', 'fix-batch_0': '-.'}
     loc_dict = {'Accuracy': 'lower right', 'Loss': 'upper right'}
