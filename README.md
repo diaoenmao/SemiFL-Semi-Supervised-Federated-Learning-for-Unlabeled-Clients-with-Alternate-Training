@@ -1,5 +1,5 @@
 # SemiFL: Semi-Supervised Federated Learning for Unlabeled Clients with Alternate Training
-This is an implementation of [SemiFL: Semi-Supervised Federated Learning for Unlabeled Clients with Alternate Training](https://arxiv.org/abs/2106.01432)
+[NeurIPS 2022] This is an implementation of [SemiFL: Semi-Supervised Federated Learning for Unlabeled Clients with Alternate Training](https://arxiv.org/abs/2106.01432)
 - A resourceful server with labeled data can significantly improve its learning performance by working with distributed clients with unlabeled data without data sharing.
 <p align="center">
 <img src="/asset/SSFL.png">
