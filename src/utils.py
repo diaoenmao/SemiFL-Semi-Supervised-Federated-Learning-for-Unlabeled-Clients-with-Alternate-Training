@@ -107,7 +107,7 @@ def recur(fn, input, *args):
 
 
 def process_dataset(dataset):
-    cfg['data_size'] = {'train': len(dataset['train']), 'test': len(dataset['train'])}
+    cfg['data_size'] = {'train': len(dataset['train']), 'test': len(dataset['test'])}
     cfg['target_size'] = dataset['train'].target_size
     return
 
