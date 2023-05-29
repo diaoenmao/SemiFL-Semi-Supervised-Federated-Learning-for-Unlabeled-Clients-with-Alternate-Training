@@ -179,7 +179,7 @@ def non_iid(dataset, num_users):
     return data_split
 
 
-def separate_dataset(dataset, idx):
+def separate_dataset(dataset, idx): # gets dataset's subset at the specified indices
     separated_dataset = copy.deepcopy(dataset)
     separated_dataset.data = [dataset.data[s] for s in idx]
     separated_dataset.target = [dataset.target[s] for s in idx]

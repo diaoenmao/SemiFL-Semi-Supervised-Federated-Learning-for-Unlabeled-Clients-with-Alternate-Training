@@ -131,9 +131,10 @@ def process_control():
             cfg['threshold'] = float(cfg['control']['loss_mode'].split('-')[0].split('@')[1])
     if 'num_clients' in cfg['control']:
         cfg['num_clients'] = int(cfg['control']['num_clients'])
-        cfg['active_rate'] = float(cfg['control']['active_rate'])
+        cfg['active_rate'] = float(cfg['control'][''])
         cfg['data_split_mode'] = cfg['control']['data_split_mode']
-        cfg['local_epoch'] = cfg['control']['local_epoch'].split('-')
+        cfg['local_epoch'] = cfg['control']['local_epoch'].split('-') 
+        # [5, 5] corresp to server/client
         cfg['gm'] = float(cfg['control']['gm'])
         cfg['sbn'] = int(cfg['control']['sbn'])
         if 'ft' in cfg['control']:

@@ -225,7 +225,7 @@ class Client:
     def make_dataset(self, dataset, metric, logger):
         if 'sup' in cfg['loss_mode']:
             return dataset
-        elif 'fix' in cfg['loss_mode']:
+        elif 'fix' in cfg['loss_mode']: # always entered when running method
             with torch.no_grad():
                 data_loader = make_data_loader({'train': dataset}, 'global', shuffle={'train': False})['train']
                 model = eval('models.{}(track=True).to(cfg["device"])'.format(cfg['model_name']))
@@ -236,20 +236,20 @@ class Client:
                 for i, input in enumerate(data_loader):
                     input = collate(input)
                     input = to_device(input, cfg['device'])
-                    output_ = model(input)
+                    output_ = model(input) # unsoftmaxed
                     output_i = output_['target']
                     target_i = input['target']
                     output.append(output_i.cpu())
                     target.append(target_i.cpu())
                 output_, input_ = {}, {}
-                output_['target'] = torch.cat(output, dim=0)
-                input_['target'] = torch.cat(target, dim=0)
-                output_['target'] = F.softmax(output_['target'], dim=-1)
+                output_['target'] = torch.cat(output, dim=0) # collect all logits into a tensor
+                input_['target'] = torch.cat(target, dim=0) # collect all the targets into a tensor
+                output_['target'] = F.softmax(output_['target'], dim=-1) # finally softmax the logits
                 new_target, mask = self.make_hard_pseudo_label(output_['target'])
-                output_['mask'] = mask
+                output_['mask'] = mask # which targets to ignore
                 evaluation = metric.evaluate(['PAccuracy', 'MAccuracy', 'LabelRatio'], input_, output_)
                 logger.append(evaluation, 'train', n=len(input_['target']))
-                if torch.any(mask):
+                if torch.any(mask): # return new dataset based on masked out
                     fix_dataset = copy.deepcopy(dataset)
                     fix_dataset.target = new_target.tolist()
                     mask = mask.tolist()
@@ -327,7 +327,7 @@ class Client:
                         break
         elif 'fix' in cfg['loss_mode'] and 'mix' in cfg['loss_mode'] and 'batch' not in cfg[
             'loss_mode'] and 'frgd' not in cfg['loss_mode'] and 'fmatch' not in cfg['loss_mode']:
-            fix_dataset, mix_dataset = dataset
+            fix_dataset, mix_dataset = dataset # comes from make_dataset
             fix_data_loader = make_data_loader({'train': fix_dataset}, 'client')['train']
             mix_data_loader = make_data_loader({'train': mix_dataset}, 'client')['train']
             model = eval('models.{}().to(cfg["device"])'.format(cfg['model_name']))
@@ -336,7 +336,7 @@ class Client:
             optimizer = make_optimizer(model.parameters(), 'local')
             optimizer.load_state_dict(self.optimizer_state_dict)
             model.train(True)
-            if cfg['client']['num_epochs'] == 1:
+            if cfg['client']['num_epochs'] == 1: # 5 acc to default
                 num_batches = int(np.ceil(len(fix_data_loader) * float(cfg['local_epoch'][0])))
             else:
                 num_batches = None
@@ -388,6 +388,7 @@ class Client:
                         output_['mask'] = mask
                         evaluation = metric.evaluate(['PAccuracy', 'MAccuracy', 'LabelRatio'], input_, output_)
                         logger.append(evaluation, 'train', n=len(input_['target']))
+                        # logging every single
                     if torch.all(~mask):
                         continue
                     model.train(True)

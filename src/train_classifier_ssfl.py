@@ -39,22 +39,29 @@ def runExperiment():
     cfg['seed'] = int(cfg['model_tag'].split('_')[0])
     torch.manual_seed(cfg['seed'])
     torch.cuda.manual_seed(cfg['seed'])
-    server_dataset = fetch_dataset(cfg['data_name'])
+    server_dataset = fetch_dataset(cfg['data_name']) # a dict of two datasets under 'train' and 'test'
     client_dataset = fetch_dataset(cfg['data_name'])
-    process_dataset(server_dataset)
+    process_dataset(server_dataset) # just get some dataset stats and add to config
     server_dataset['train'], client_dataset['train'], supervised_idx = separate_dataset_su(server_dataset['train'],
                                                                                            client_dataset['train'])
-    data_loader = make_data_loader(server_dataset, 'global')
+    # ^ the info of number supervised comes from the cfg. The first 
+    # n are separated out into supervised idx.
+    # separate out into 2, supervised and unsupervised datasets. 
+    # Looks like lots of labels aren't used if we are just 
+    # taking base dataset and marking most as unsupervised
+    data_loader = make_data_loader(server_dataset, 'global') # dict of train and test dataloaders
     model = eval('models.{}().to(cfg["device"])'.format(cfg['model_name']))
     optimizer = make_optimizer(model.parameters(), 'local')
     scheduler = make_scheduler(optimizer, 'global')
-    if cfg['sbn'] == 1:
+    if cfg['sbn'] == 1: # just concats the two datasets
         batchnorm_dataset = make_batchnorm_dataset_su(server_dataset['train'], client_dataset['train'])
     elif cfg['sbn'] == 0:
         batchnorm_dataset = server_dataset['train']
     else:
         raise ValueError('Not valid sbn')
     data_split = split_dataset(client_dataset, cfg['num_clients'], cfg['data_split_mode'])
+    # data_split is a dict of 'test', 'train' of lists, 
+    # each elem corresponding to data for different client
     if cfg['loss_mode'] != 'sup':
         metric = Metric({'train': ['Loss', 'Accuracy', 'PAccuracy', 'MAccuracy', 'LabelRatio'],
                          'test': ['Loss', 'Accuracy']})
@@ -73,7 +80,7 @@ def runExperiment():
             logger = result['logger']
         else:
             server = make_server(model)
-            client = make_client(model, data_split)
+            client = make_client(model, data_split) # makes as many clients as in data_split
             logger = make_logger(os.path.join('output', 'runs', 'train_{}'.format(cfg['model_tag'])))
     else:
         last_epoch = 1
@@ -134,7 +141,8 @@ def train_client(batchnorm_dataset, client_dataset, server, client, optimizer, m
         m = client_id[i]
         dataset_m = separate_dataset(client_dataset, client[m].data_split['train'])
         if 'batch' not in cfg['loss_mode'] and 'frgd' not in cfg['loss_mode'] and 'fmatch' not in cfg['loss_mode']:
-            dataset_m = client[m].make_dataset(dataset_m, metric, logger)
+            dataset_m = client[m].make_dataset(dataset_m, metric, logger) 
+        # ^ update your dataset to make it fixmatch or mixmatch or sup or whatever
         if dataset_m is not None:
             client[m].active = True
             client[m].train(dataset_m, lr, metric, logger)

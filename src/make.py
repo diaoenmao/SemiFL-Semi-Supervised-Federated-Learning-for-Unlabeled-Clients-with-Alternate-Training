@@ -18,7 +18,7 @@ args = vars(parser.parse_args())
 
 
 def make_controls(script_name, data_names, model_names, init_seeds, world_size, num_experiments, resume_mode,
-                  control_name):
+                  control_name): # generates all possible control combinations
     control_names = []
     for i in range(len(control_name)):
         control_names.extend(list('_'.join(x) for x in itertools.product(*control_name[i])))
@@ -275,3 +275,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+
