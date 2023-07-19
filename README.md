@@ -36,7 +36,7 @@ See `requirements.txt`
     ```
  - Test SemiFL for SVHN dataset (WResNet28x2, $N_\mathcal{S}=1000$, fix ( $\tau=0.95$ ) loss, $M=100$, $C=0.1$, Non-IID ( $Dir(0.3)$ ), $E=5$, global mometum $0.5$, server only sBN statistics, finetune)
     ```ruby
-    python test_classifier_ssfl.py --data_name SVHN --model_name wresnet28x2 --control_name 1000_fix@0.95_100_0.1_non-iid-d-0.3_1_5-5_0.5_0_1
+    python test_classifier_ssfl.py --data_name SVHN --model_name wresnet28x2 --control_name 1000_fix@0.95_100_0.1_non-iid-d-0.3_5-5_0.5_0_1
     ```
     
 ## Results
