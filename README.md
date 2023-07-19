@@ -26,17 +26,17 @@ See `requirements.txt`
  - The data are split at `split_dataset()` in `data.py`
  
 ## Examples
- - Train SemiFL for CIFAR10 dataset (WResNet28x2, $N_\mathcal{S}=4000$, fix ( $\tau=0.95$ ) and mix loss, $M=100$, $C=0.1$, IID, $E=5$, server and client sBN statistics)
+ - Train SemiFL for CIFAR10 dataset (WResNet28x2, $N_\mathcal{S}=4000$, fix ( $\tau=0.95$ ) and mix loss, $M=100$, $C=0.1$, IID, $E=5$, global mometum $0.5$, server and client sBN statistics, finetune)
     ```ruby
-    python train_classifier_ssfl.py --data_name CIFAR10 --model_name wresnet28x2 --control_name 4000_fix@0.95-mix_100_0.1_iid_5_0.5_1
+    python train_classifier_ssfl.py --data_name CIFAR10 --model_name wresnet28x2 --control_name 4000_fix@0.95-mix_100_0.1_iid_5-5_0.5_1_1
     ```
- - Train SemiFL for CIFAR10 dataset (WResNet28x2, $N_\mathcal{S}=250$, fix ( $\tau=0.95$ ) and mix loss, $M=100$, $C=0.1$, Non-IID ( $K=2$ ), $E=5$, server and client sBN statistics)
+ - Train SemiFL for CIFAR10 dataset (WResNet28x2, $N_\mathcal{S}=250$, fix ( $\tau=0.95$ ) and mix loss, $M=100$, $C=0.1$, Non-IID ( $K=2$ ), $E=5$, global mometum $0.5$, server and client sBN statistics, finetune)
     ```ruby
-    python train_classifier_ssfl.py --data_name CIFAR10 --model_name wresnet28x2 --control_name 250_fix@0.95-mix_100_0.1_non-iid-l-2_5_0.1_1
+    python train_classifier_ssfl.py --data_name CIFAR10 --model_name wresnet28x2 --control_name 250_fix@0.95-mix_100_0.1_non-iid-l-2_5-5_0.5_1_1
     ```
- - Test SemiFL for SVHN dataset (WResNet28x2, $N_\mathcal{S}=1000$, fix ( $\tau=0.95$ ) loss, $M=100$, $C=0.1$, Non-IID ( $Dir(0.3)$ ), $E=5$, server only sBN statistics)
+ - Test SemiFL for SVHN dataset (WResNet28x2, $N_\mathcal{S}=1000$, fix ( $\tau=0.95$ ) loss, $M=100$, $C=0.1$, Non-IID ( $Dir(0.3)$ ), $E=5$, global mometum $0.5$, server only sBN statistics, finetune)
     ```ruby
-    python test_classifier_ssfl.py --data_name SVHN --model_name wresnet28x2 --control_name 1000_fix@0.95_100_0.1_non-iid-d-0.3_1_0_0
+    python test_classifier_ssfl.py --data_name SVHN --model_name wresnet28x2 --control_name 1000_fix@0.95_100_0.1_non-iid-d-0.3_1_5-5_0.5_0_1
     ```
     
 ## Results
